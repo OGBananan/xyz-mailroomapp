@@ -17,9 +17,3 @@ export interface Card {
   createdAt: string
   updatedAt: string
 }
-
-export interface BoardState {
-  cards: Card[]
-  isTriaging: boolean
-  lastTriagedAt: string | null
-}

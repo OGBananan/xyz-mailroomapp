@@ -1,7 +1,7 @@
 import { BedrockAgentCoreApp } from 'bedrock-agentcore/runtime'
 import { triageAgent } from './agents/triage.js'
 import { draftAgent } from './agents/draft.js'
-import type { TriageAgentInput, DraftAgentInput } from '@inbox-triage/types'
+import type { TriageAgentInput, DraftAgentInput } from './types/index.js'
 
 type AgentPayload =
   | { action: 'triage'; input: TriageAgentInput }

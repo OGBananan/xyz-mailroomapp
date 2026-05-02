@@ -1,5 +1,5 @@
 import { google } from 'googleapis'
-import type { Email } from '@inbox-triage/types'
+import type { Email } from '../types/index.js'
 
 const TRIAGE_LABELS = {
   NEEDS_YOU: 'triage/needs-you',

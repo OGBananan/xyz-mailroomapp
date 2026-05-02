@@ -1,7 +1,7 @@
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { JsonOutputParser } from '@langchain/core/output_parsers'
-import type { TriageAgentInput, TriageAgentOutput } from '@inbox-triage/types'
+import type { TriageAgentInput, TriageAgentOutput } from '../types/index.js'
 
 const model = new ChatAnthropic({
   model: 'claude-sonnet-4-6',

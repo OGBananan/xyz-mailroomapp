@@ -1,7 +1,7 @@
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import type { DraftAgentInput, DraftAgentOutput } from '@inbox-triage/types'
+import type { DraftAgentInput, DraftAgentOutput } from '../types/index.js'
 
 const model = new ChatAnthropic({
   model: 'claude-sonnet-4-6',
