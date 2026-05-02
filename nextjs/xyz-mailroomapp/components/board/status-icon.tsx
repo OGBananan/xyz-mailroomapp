@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import type { Status } from "./data"
+import type { Status } from "./types/status"
 
 interface StatusIconProps {
   status: Status

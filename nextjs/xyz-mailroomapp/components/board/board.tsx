@@ -6,8 +6,13 @@ import { cn } from "@/lib/utils"
 import { BoardSidebar } from "./board-sidebar"
 import { BoardColumn } from "./board-column"
 import { ComposePopup } from "./compose-popup"
-import { EmailDialog } from "./email-dialog"
-import { COLUMNS, MOCK_EMAILS, type EmailCard, type Status } from "./data"
+import { EmailDialog } from "./email-dialog/index"
+import { COLUMNS } from "./config"
+import type { EmailCard } from "./types/email"
+import type { Status } from "./types/status"
+import { getFrom } from "./helpers/headers"
+import { getLatestMessage } from "./helpers/thread"
+import { MOCK_EMAILS } from "./mock/emails"
 
 export function Board() {
   const [emails, setEmails] = useState<EmailCard[]>(MOCK_EMAILS)
@@ -38,37 +43,38 @@ export function Board() {
     return out
   }, [emails])
 
-  // Lookup current email by id so dialog reflects state changes (decide → review)
-  const openEmail = openEmailId ? emails.find(e => e.id === openEmailId) ?? null : null
+  // Lookup current email by thread id so dialog reflects state changes (decide → review)
+  const openEmail = openEmailId ? emails.find(e => e.thread.id === openEmailId) ?? null : null
 
   function handleCardClick(email: EmailCard) {
     if (email.state === "ready") {
       setComposing(email)
     } else {
-      setOpenEmailId(email.id)
+      setOpenEmailId(email.thread.id ?? null)
     }
   }
 
   function moveTo(id: string, state: Status) {
-    setEmails(prev => prev.map(e => e.id === id ? { ...e, state } : e))
+    setEmails(prev => prev.map(e => e.thread.id === id ? { ...e, state } : e))
   }
 
   function generateDraft(id: string) {
-    setEmails(prev => prev.map(e => e.id === id
-      ? {
-          ...e,
-          state: "review",
-          draft: e.draft ?? {
-            generatedAt: "Drafted just now",
-            body: `Hey ${e.sender.name.split(" ")[0]},\n\nThanks for the note. Quick reply incoming — I'll get back to you with specifics shortly.\n\n- Anurag`,
-          },
-        }
-      : e
-    ))
+    setEmails(prev => prev.map(e => {
+      if (e.thread.id !== id) return e
+      const senderName = getFrom(getLatestMessage(e.thread)).name.split(" ")[0]
+      return {
+        ...e,
+        state: "review" as Status,
+        draft: e.draft ?? {
+          generatedAt: "Drafted just now",
+          body: `Hey ${senderName},\n\nThanks for the note. Quick reply incoming — I'll get back to you with specifics shortly.\n\n- Anurag`,
+        },
+      }
+    }))
   }
 
   function removeEmail(id: string) {
-    setEmails(prev => prev.filter(e => e.id !== id))
+    setEmails(prev => prev.filter(e => e.thread.id !== id))
   }
 
   return (
@@ -78,7 +84,7 @@ export function Board() {
       <div className="flex flex-1 overflow-hidden px-3 py-2 pl-0">
         <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           <header className="flex items-center gap-2 border-b border-border px-5 py-2.5">
-            <span className="text-sm font-medium text-foreground">Agent Tasks</span>
+            <span className="text-sm font-medium text-foreground">Inbox</span>
 
             <div className="ml-auto flex items-center gap-2">
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground/40">

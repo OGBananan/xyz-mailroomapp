@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { gmail_v1 } from "googleapis"
-import { Sparkles, MailOpen, ChevronRight, ChevronDown, Send } from "lucide-react"
+import { Sparkles, MailOpen, ChevronRight, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -13,16 +12,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  type EmailCard,
-  getFrom,
-  getToList,
-  getBody,
-  getDateLabel,
-  getThreadSubject,
-  getLatestMessage,
-  relativeTime,
-} from "./data"
+import type { EmailCard } from "../types/email"
+import { getFrom } from "../helpers/headers"
+import { getLatestMessage, getThreadSubject } from "../helpers/thread"
+import { ThreadView } from "./thread-view"
 
 interface EmailDialogProps {
   email: EmailCard | null
@@ -31,140 +24,6 @@ interface EmailDialogProps {
   onArchive: (id: string) => void
   onSend: (id: string) => void
 }
-
-// ── Thread message ────────────────────────────────────────────────────────────
-
-function MessageBlock({
-  message,
-  expanded,
-  onToggle,
-  isLatest,
-}: {
-  message: gmail_v1.Schema$Message
-  expanded: boolean
-  onToggle: () => void
-  isLatest: boolean
-}) {
-  const from = getFrom(message)
-  const to = getToList(message)
-  const date = getDateLabel(message)
-  const body = getBody(message)
-  const snippet = message.snippet ?? body.split("\n").find(l => l.trim()) ?? ""
-
-  const recipientLabel = to.length === 0
-    ? ""
-    : to.length === 1
-    ? to[0].email
-    : `${to[0].email} +${to.length - 1}`
-
-  return (
-    <div className={cn(
-      "rounded-lg border transition-colors",
-      expanded ? "border-border bg-card" : "border-border/60 bg-muted/30 hover:bg-muted/50",
-    )}>
-      <button
-        onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left"
-      >
-        <Avatar size="sm" className="mt-0.5 shrink-0">
-          <AvatarFallback className="text-[10px]">{from.initials}</AvatarFallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">{from.name}</span>
-            <span className="truncate text-[11px] text-muted-foreground/50">
-              &lt;{from.email}&gt;
-            </span>
-            <span className="ml-auto shrink-0 text-[11px] text-muted-foreground/50 tabular-nums">
-              {relativeTime(date)}
-            </span>
-          </div>
-          {expanded ? (
-            <span className="text-[11px] text-muted-foreground/50">
-              to {recipientLabel}
-            </span>
-          ) : (
-            <span className="line-clamp-1 text-xs text-muted-foreground/60">
-              {snippet}
-            </span>
-          )}
-        </div>
-        {!isLatest && (
-          <ChevronDown className={cn(
-            "mt-1 size-3.5 shrink-0 text-muted-foreground/40 transition-transform",
-            expanded && "rotate-180",
-          )} />
-        )}
-      </button>
-      {expanded && (
-        <div className="border-t border-border/60 px-4 py-3">
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
-            {body}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Thread view ───────────────────────────────────────────────────────────────
-
-function ThreadView({ thread }: { thread: gmail_v1.Schema$Thread }) {
-  const messages = thread.messages ?? []
-  const latestId = messages[messages.length - 1]?.id ?? ""
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set([latestId]))
-  const [showOlder, setShowOlder] = useState(false)
-
-  function toggle(id: string) {
-    setExpandedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  if (messages.length === 0) return null
-
-  const olderMessages = messages.slice(0, -1)
-  const latest = messages[messages.length - 1]
-
-  return (
-    <div className="flex flex-col gap-2">
-      {olderMessages.length > 0 && (
-        <>
-          {showOlder ? (
-            olderMessages.map(m => (
-              <MessageBlock
-                key={m.id}
-                message={m}
-                expanded={expandedIds.has(m.id ?? "")}
-                onToggle={() => toggle(m.id ?? "")}
-                isLatest={false}
-              />
-            ))
-          ) : (
-            <button
-              onClick={() => setShowOlder(true)}
-              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-2 text-[11px] text-muted-foreground/60 transition-colors hover:border-border hover:bg-muted/30 hover:text-foreground"
-            >
-              <ChevronDown className="size-3" />
-              {olderMessages.length} earlier {olderMessages.length === 1 ? "message" : "messages"}
-            </button>
-          )}
-        </>
-      )}
-      <MessageBlock
-        message={latest}
-        expanded={expandedIds.has(latest.id ?? "")}
-        onToggle={() => toggle(latest.id ?? "")}
-        isLatest
-      />
-    </div>
-  )
-}
-
-// ── Main dialog ───────────────────────────────────────────────────────────────
 
 export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: EmailDialogProps) {
   const [body, setBody] = useState("")
@@ -180,14 +39,15 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
   }, [email])
 
   if (!email) return null
-  const isReview = email.state === "review"
-  const messages = email.thread.messages ?? []
-  const latest = getLatestMessage(email.thread)
-  const latestSender = getFrom(latest)
-  const subject = getThreadSubject(email.thread)
-  const threadId = email.thread.id ?? ""
 
-  function regenerate() {
+  const isReview     = email.state === "review"
+  const messages     = email.thread.messages ?? []
+  const latest       = getLatestMessage(email.thread)
+  const latestSender = getFrom(latest)
+  const subject      = getThreadSubject(email.thread)
+  const threadId     = email.thread.id ?? ""
+
+  function sendFeedback() {
     if (!feedback.trim()) return
     onClose()
   }
@@ -201,9 +61,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
         {/* Header */}
         <div className="flex items-start gap-3 border-b border-border px-6 py-4">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <DialogTitle className="text-base font-semibold leading-snug">
-              {subject}
-            </DialogTitle>
+            <DialogTitle className="text-base font-semibold leading-snug">{subject}</DialogTitle>
             <p className="text-xs text-muted-foreground/60 tabular-nums">
               {messages.length} {messages.length === 1 ? "message" : "messages"} in this thread
             </p>
@@ -261,9 +119,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                           {email.draft?.generatedAt}
                         </span>
                       </div>
-                      <span className="text-[11px] text-muted-foreground/60">
-                        to {latestSender.email}
-                      </span>
+                      <span className="text-[11px] text-muted-foreground/60">to {latestSender.email}</span>
                     </div>
                   </div>
                   <Textarea
@@ -285,10 +141,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                       value={feedback}
                       onChange={e => setFeedback(e.target.value)}
                       onKeyDown={e => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault()
-                          regenerate()
-                        }
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendFeedback() }
                       }}
                       placeholder="Tell the agent how to adjust this draft…"
                       className="flex-1 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/40 outline-none"
@@ -296,7 +149,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                     <Button
                       size="sm"
                       className="h-7 shrink-0 gap-1 px-2.5 text-xs"
-                      onClick={regenerate}
+                      onClick={sendFeedback}
                       disabled={!feedback.trim()}
                     >
                       <Send className="size-3" />
@@ -324,23 +177,15 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                 <MailOpen className="size-3.5" />
                 Mark as read
               </Button>
-              <Button
-                className="gap-1.5"
-                onClick={() => onDraft(threadId)}
-              >
+              <Button className="gap-1.5" onClick={() => onDraft(threadId)}>
                 <Sparkles className="size-3.5" />
                 Draft a reply
               </Button>
             </>
           ) : (
             <>
-              <span className="text-xs text-muted-foreground/50">
-                Edits save automatically
-              </span>
-              <Button
-                className="gap-1.5"
-                onClick={() => { onSend(threadId); onClose() }}
-              >
+              <span className="text-xs text-muted-foreground/50">Edits save automatically</span>
+              <Button className="gap-1.5" onClick={() => { onSend(threadId); onClose() }}>
                 <Send className="size-3.5" />
                 Move to Send
               </Button>

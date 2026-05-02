@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Inbox, FileText, Bot, Triangle, Settings, HelpCircle, Sun, Moon, Home } from "lucide-react"
+import { Inbox, Triangle, Settings, HelpCircle, Sun, Moon, Home } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -61,8 +61,6 @@ export function BoardSidebar() {
       <nav className="flex flex-1 flex-col gap-0.5 px-2 py-2">
         <NavItem icon={<Home />} label="Home" href="/" />
         <NavItem icon={<Inbox />} label="Inbox" href="/inbox" count={3} />
-        <NavItem icon={<FileText />} label="Drafts" href="/drafts" />
-        <NavItem icon={<Bot />} label="Agent Tasks" href="/agent-tasks" />
       </nav>
 
       {/* Bottom */}

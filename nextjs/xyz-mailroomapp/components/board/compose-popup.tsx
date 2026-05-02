@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Minus, X, Paperclip, Send, ChevronDown } from "lucide-react"
+import { Minus, X, Paperclip, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import type { EmailCard } from "./data"
+import type { EmailCard } from "./types/email"
+import { getFrom } from "./helpers/headers"
+import { getLatestMessage, getThreadSubject } from "./helpers/thread"
 
 interface ComposePopupProps {
   email: EmailCard | null
@@ -26,10 +28,12 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
 
   useEffect(() => {
     if (!email) return
-    setTo(email.draft?.to?.join(", ") ?? email.sender.email)
+    const sender = getFrom(getLatestMessage(email.thread))
+    const subject = getThreadSubject(email.thread)
+    setTo(email.draft?.to?.join(", ") ?? sender.email)
     setCc(email.draft?.cc?.join(", ") ?? "")
     setBcc(email.draft?.bcc?.join(", ") ?? "")
-    setSubject(email.draft?.subject ?? `Re: ${email.subject}`)
+    setSubject(email.draft?.subject ?? `Re: ${subject}`)
     setBody(email.draft?.body ?? "")
     setShowCcBcc(Boolean(email.draft?.cc?.length || email.draft?.bcc?.length))
     setSending(false)
@@ -41,7 +45,7 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
     if (!email) return
     setSending(true)
     setTimeout(() => {
-      onSent(email.id)
+      onSent(email.thread.id ?? "")
       onClose()
     }, 700)
   }

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { StatusIcon } from "./status-icon"
 import { BoardCard } from "./board-card"
-import type { EmailCard, Status } from "./data"
+import type { EmailCard } from "./types/email"
+import type { Status } from "./types/status"
 
 interface BoardColumnProps {
   status: Status
@@ -100,7 +101,7 @@ export function BoardColumn({ status, label, description, emails, onCardClick }:
           ) : (
             emails.map(email => (
               <BoardCard
-                key={email.id}
+                key={email.thread.id}
                 email={email}
                 onClick={onCardClick}
               />

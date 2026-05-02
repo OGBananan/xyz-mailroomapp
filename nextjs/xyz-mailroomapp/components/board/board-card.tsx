@@ -4,14 +4,10 @@ import { Sparkles, AlertTriangle, Send, Edit3, MailOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import {
-  type EmailCard,
-  getLatestMessage,
-  getThreadSubject,
-  getFrom,
-  getDateLabel,
-  relativeTime,
-} from "./data"
+import type { EmailCard } from "./types/email"
+import { getFrom, getDateLabel } from "./helpers/headers"
+import { getLatestMessage, getThreadSubject } from "./helpers/thread"
+import { relativeTime } from "./helpers/time"
 
 interface BoardCardProps {
   email: EmailCard

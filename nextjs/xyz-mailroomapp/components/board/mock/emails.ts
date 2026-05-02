@@ -1,166 +1,5 @@
-import type { gmail_v1 } from "googleapis"
-
-// ── App-level metadata not in the Gmail wire format ─────────────────────────
-
-export type Status = "decide" | "review" | "ready"
-
-export interface Classification {
-  label: string
-  confidence: "high" | "low"
-  reason: string
-}
-
-export interface Draft {
-  body: string
-  generatedAt: string
-  to?: string[]
-  cc?: string[]
-  bcc?: string[]
-  subject?: string
-}
-
-export interface EmailCard {
-  thread: gmail_v1.Schema$Thread
-  classification: Classification
-  state: Status
-  draft?: Draft
-}
-
-// ── Gmail message helpers (operate on Schema$Message) ───────────────────────
-
-export function getHeader(msg: gmail_v1.Schema$Message | undefined, name: string): string {
-  return msg?.payload?.headers?.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value ?? ""
-}
-
-export interface ParsedAddress {
-  name: string
-  email: string
-  initials: string
-}
-
-export function parseAddress(value: string): ParsedAddress {
-  // Matches "Name <email@host>" or just "email@host"
-  const match = value.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/)
-  if (match) {
-    const name = match[1].trim() || match[2]
-    return { name, email: match[2].trim(), initials: makeInitials(name) }
-  }
-  const email = value.trim()
-  return { name: email, email, initials: makeInitials(email) }
-}
-
-function makeInitials(s: string): string {
-  const parts = s.replace(/[<>"]/g, "").trim().split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return (parts[0]?.slice(0, 2) ?? "??").toUpperCase()
-}
-
-export function getFrom(msg: gmail_v1.Schema$Message | undefined): ParsedAddress {
-  return parseAddress(getHeader(msg, "From"))
-}
-
-export function getToList(msg: gmail_v1.Schema$Message | undefined): ParsedAddress[] {
-  const raw = getHeader(msg, "To")
-  if (!raw) return []
-  return raw.split(",").map(parseAddress)
-}
-
-export function getSubject(msg: gmail_v1.Schema$Message | undefined): string {
-  return getHeader(msg, "Subject")
-}
-
-export function getDateLabel(msg: gmail_v1.Schema$Message | undefined): string {
-  return getHeader(msg, "Date")
-}
-
-/** Walk the MIME tree and return the best-effort plain text body. */
-export function getBody(msg: gmail_v1.Schema$Message | undefined): string {
-  if (!msg?.payload) return ""
-  const findText = (part: gmail_v1.Schema$MessagePart): string | undefined => {
-    if (part.mimeType === "text/plain" && part.body?.data) return decode(part.body.data)
-    if (part.parts) {
-      for (const child of part.parts) {
-        const found = findText(child)
-        if (found) return found
-      }
-    }
-    if (part.body?.data) return decode(part.body.data)
-    return undefined
-  }
-  return findText(msg.payload) ?? ""
-}
-
-function decode(data: string): string {
-  // Mock data uses plain text; real Gmail uses base64url. Detect and decode if needed.
-  if (/^[A-Za-z0-9_-]+={0,2}$/.test(data) && data.length % 4 === 0) {
-    try {
-      const b64 = data.replace(/-/g, "+").replace(/_/g, "/")
-      return typeof atob === "function" ? atob(b64) : data
-    } catch {
-      return data
-    }
-  }
-  return data
-}
-
-// ── Thread helpers ───────────────────────────────────────────────────────────
-
-export function getLatestMessage(thread: gmail_v1.Schema$Thread): gmail_v1.Schema$Message | undefined {
-  return thread.messages?.[thread.messages.length - 1]
-}
-
-export function getThreadSubject(thread: gmail_v1.Schema$Thread): string {
-  return getSubject(thread.messages?.[0]) || getSubject(getLatestMessage(thread))
-}
-
-// ── Mock data builder ────────────────────────────────────────────────────────
-
-let messageCounter = 0
-const nextMsgId = () => `m-${++messageCounter}`
-
-interface MessageInput {
-  from: string
-  to: string
-  subject?: string
-  date: string
-  body: string
-}
-
-function buildMessage(threadId: string, input: MessageInput): gmail_v1.Schema$Message {
-  return {
-    id: nextMsgId(),
-    threadId,
-    snippet: input.body.split("\n").find(l => l.trim())?.slice(0, 120) ?? "",
-    payload: {
-      mimeType: "text/plain",
-      headers: [
-        { name: "From", value: input.from },
-        { name: "To", value: input.to },
-        { name: "Subject", value: input.subject ?? "" },
-        { name: "Date", value: input.date },
-      ],
-      body: { data: input.body, size: input.body.length },
-    },
-    sizeEstimate: input.body.length,
-    labelIds: ["INBOX"],
-  }
-}
-
-function buildThread(threadId: string, subject: string, messages: Omit<MessageInput, "subject">[]): gmail_v1.Schema$Thread {
-  const built = messages.map((m, i) => buildMessage(threadId, {
-    ...m,
-    // Gmail copies the original subject to all replies; we mimic that
-    subject: i === 0 ? subject : `Re: ${subject}`,
-  }))
-  return {
-    id: threadId,
-    historyId: "1",
-    messages: built,
-    snippet: built[built.length - 1].snippet,
-  }
-}
-
-// ── Mock emails ──────────────────────────────────────────────────────────────
+import type { EmailCard } from "../types/email"
+import { buildThread } from "./builder"
 
 export const MOCK_EMAILS: EmailCard[] = [
   // ── DECIDE ────────────────────────────────────────────────────────────────
@@ -376,15 +215,15 @@ Add inbox board view (#47)
 This PR adds the three-column triage board with classification badges, draft generation, and the Gmail-style compose popup. Built with shadcn/ui base-nova components.
 
 Changes:
-+ components/board/data.ts
++ components/board/types/email.ts
++ components/board/helpers/
++ components/board/mock/
 + components/board/board.tsx
 + components/board/board-card.tsx
 + components/board/compose-popup.tsx
 
 Review requested from: @anurag-bansal
-Reviewers: 2 approved, 1 pending
-
-View the full diff at: https://github.com/mailroomapp/main/pull/47`,
+Reviewers: 2 approved, 1 pending`,
       },
     ]),
     classification: { label: "Question for you", confidence: "high", reason: "Sam tagged you for review and the PR is blocking the release" },
@@ -468,33 +307,3 @@ Should bring us back to baseline by end of week. I'll keep an eye on it.
     },
   },
 ]
-
-export const COLUMNS: { id: Status; label: string; description: string }[] = [
-  { id: "decide", label: "Decide",        description: "Pick what should happen with this email" },
-  { id: "review", label: "Review",        description: "Edit the agent's draft" },
-  { id: "ready",  label: "Ready to Send", description: "Final check before it goes out" },
-]
-
-export function getColumnEmails(status: Status): EmailCard[] {
-  return MOCK_EMAILS.filter(e => e.state === status)
-}
-
-// ── Relative time formatting ────────────────────────────────────────────────
-
-export function relativeTime(rfc2822Date: string): string {
-  if (!rfc2822Date) return ""
-  const ts = Date.parse(rfc2822Date)
-  if (isNaN(ts)) return rfc2822Date
-  const diffMs = Date.now() - ts
-  const mins = Math.floor(diffMs / 60_000)
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days === 1) return "Yesterday"
-  if (days < 7) return `${days}d ago`
-  const weeks = Math.floor(days / 7)
-  if (weeks < 5) return `${weeks}w ago`
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
