@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common'
 import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { AgentRunEntity, type AgentRunItem } from '../entities/index.js'
+import { AgentRunEntity, type AgentRunItem, AGENT_RUN_TABLE_NAME } from '../entities/index.js'
 import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
 import { documentClient } from '../dynamo.client.js'
-import { env } from '../../config/env.js'
 
-const TABLE = `${env.DYNAMO_TABLE_PREFIX}-agent-runs`
-
-type AgentRunKey    = Pick<AgentRunItem, 'userId' | 'runId'>
+type AgentRunKey = Pick<AgentRunItem, 'userId' | 'runId'>
 type AgentRunUpdate = Partial<Omit<AgentRunItem, 'userId' | 'runId'>>
 
 @Injectable()
@@ -24,7 +21,7 @@ export class AgentRunsRepo {
 
   async update(key: AgentRunKey, updates: AgentRunUpdate, opts?: UpdateOptions): Promise<void> {
     await documentClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: AGENT_RUN_TABLE_NAME,
       Key: key,
       ...buildUpdateExpression(updates as Record<string, unknown>, opts),
     }))

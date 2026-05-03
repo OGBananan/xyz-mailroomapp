@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { SyncStateEntity, type SyncStateItem } from '../entities/index.js'
+import { SyncStateEntity, type SyncStateItem, SYNC_STATE_TABLE_NAME } from '../entities/index.js'
 import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
 import { documentClient } from '../dynamo.client.js'
-import { env } from '../../config/env.js'
-
-const TABLE = `${env.DYNAMO_TABLE_PREFIX}-sync-state`
 
 type SyncStateKey    = Pick<SyncStateItem, 'userId'>
 type SyncStateUpdate = Partial<Omit<SyncStateItem, 'userId'>>
@@ -24,7 +21,7 @@ export class SyncStateRepo {
 
   async update(key: SyncStateKey, updates: SyncStateUpdate, opts?: UpdateOptions): Promise<void> {
     await documentClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: SYNC_STATE_TABLE_NAME,
       Key: key,
       ...buildUpdateExpression(updates as Record<string, unknown>, opts),
     }))

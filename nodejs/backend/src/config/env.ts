@@ -6,7 +6,7 @@ const req = (key: string): string => {
 const opt = (key: string, fallback: string): string => process.env[key] ?? fallback
 
 export const env = {
-  PORT: Number(process.env['PORT'] ?? 4000),
+  PORT:     Number(process.env['PORT'] ?? 4000),
   NODE_ENV: opt('NODE_ENV', 'development'),
 
   // Google OAuth
@@ -18,10 +18,9 @@ export const env = {
   SESSION_SECRET:      req('SESSION_SECRET'),
   SESSION_TTL_SECONDS: Number(process.env['SESSION_TTL_SECONDS'] ?? 604800),
 
-  // DynamoDB
-  AWS_REGION:          opt('AWS_REGION', 'us-east-1'),
-  DYNAMO_ENDPOINT:     process.env['DYNAMO_ENDPOINT'],        // http://localhost:8000 for local
-  DYNAMO_TABLE_PREFIX: opt('DYNAMO_TABLE_PREFIX', 'mailroom'),
+  // AWS — region only; credentials resolved by SDK provider chain at runtime.
+  // For DynamoDB Local set AWS_ENDPOINT_URL_DYNAMODB=http://localhost:8000 in your env.
+  AWS_REGION: opt('AWS_REGION', 'ap-south-1'),
 
   // KMS
   KMS_KEY_ID: req('KMS_KEY_ID'),
@@ -30,7 +29,7 @@ export const env = {
   AGENT_RUNTIME_URL:     req('AGENT_RUNTIME_URL'),
   AGENTCORE_RUNTIME_ARN: req('AGENTCORE_RUNTIME_ARN'),
   AGENTCORE_QUALIFIER:   opt('AGENTCORE_QUALIFIER', ''),
-  AGENT_CLIENT:          opt('AGENT_CLIENT', 'agentcore'),    // 'agentcore' | 'stub'
+  AGENT_CLIENT:          opt('AGENT_CLIENT', 'agentcore'),  // 'agentcore' | 'stub'
 
   // Frontend
   FRONTEND_ORIGIN: opt('FRONTEND_ORIGIN', 'http://localhost:3000'),

@@ -1,5 +1,15 @@
-import { Entity, item, string, number, type InputValue } from 'dynamodb-toolbox'
-import { ThreadMetaTable } from '../tables.js'
+import { Table, Entity, item, string, number, type InputValue } from 'dynamodb-toolbox'
+import { documentClient } from '../dynamo.client.js'
+import { env } from '../../config/env.js'
+
+export const THREAD_META_TABLE_NAME = 'xyz-mailroomapp-thread-meta'
+
+const table = new Table({
+  name:         THREAD_META_TABLE_NAME,
+  partitionKey: { name: 'userId',   type: 'string' },
+  sortKey:      { name: 'threadId', type: 'string' },
+  documentClient,
+})
 
 const now = () => Date.now()
 
@@ -17,6 +27,6 @@ export interface ThreadMetaItem extends InputValue<typeof ThreadMetaSchema> {}
 
 export const ThreadMetaEntity = new Entity({
   name:   'ThreadMeta',
-  table:  ThreadMetaTable,
+  table,
   schema: ThreadMetaSchema,
 })

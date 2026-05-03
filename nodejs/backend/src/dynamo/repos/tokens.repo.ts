@@ -1,13 +1,9 @@
 import { Injectable } from '@nestjs/common'
-import { GetItemCommand, PutItemCommand, DeleteItemCommand, ScanCommand } from 'dynamodb-toolbox'
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { OAuthTokenEntity, type TokenItem } from '../entities/index.js'
-import { OAuthTokensTable } from '../tables.js'
+import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
+import { ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { OAuthTokenEntity, type TokenItem, OAUTH_TOKEN_TABLE_NAME } from '../entities/index.js'
 import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
 import { documentClient } from '../dynamo.client.js'
-import { env } from '../../config/env.js'
-
-const TABLE = `${env.DYNAMO_TABLE_PREFIX}-oauth-tokens`
 
 type TokenKey    = Pick<TokenItem, 'userId'>
 type TokenUpdate = Partial<Omit<TokenItem, 'userId'>>
@@ -25,7 +21,7 @@ export class TokensRepo {
 
   async update(key: TokenKey, updates: TokenUpdate, opts?: UpdateOptions): Promise<void> {
     await documentClient.send(new UpdateCommand({
-      TableName: TABLE,
+      TableName: OAUTH_TOKEN_TABLE_NAME,
       Key: key,
       ...buildUpdateExpression(updates as Record<string, unknown>, opts),
     }))
@@ -37,9 +33,10 @@ export class TokensRepo {
 
   /** Scan only userId — used by cron to enumerate connected users. */
   async scanUserIds(): Promise<string[]> {
-    const { Items } = await OAuthTokensTable.build(ScanCommand)
-      .options({ attributes: ['userId'] })
-      .send()
+    const { Items } = await documentClient.send(new ScanCommand({
+      TableName:            OAUTH_TOKEN_TABLE_NAME,
+      ProjectionExpression: 'userId',
+    }))
     return (Items ?? [])
       .map(i => (i as { userId?: string }).userId)
       .filter((id): id is string => Boolean(id))
