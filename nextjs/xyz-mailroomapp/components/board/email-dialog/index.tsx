@@ -9,27 +9,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Button }   from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { EmailCard } from "../types/email"
-import { getFrom } from "../helpers/headers"
+import { draftsService } from "@/services/drafts.service"
+import type { EmailCard }  from "../types/email"
+import { getFrom }          from "../helpers/headers"
 import { getLatestMessage, getThreadSubject } from "../helpers/thread"
 import { ThreadView } from "./thread-view"
 
 interface EmailDialogProps {
-  email: EmailCard | null
-  onClose: () => void
-  onDraft: (id: string) => void
-  onArchive: (id: string) => void
-  onSend: (id: string) => void
+  email:      EmailCard | null
+  onClose:    () => void
+  onDraft:    (id: string) => void
+  onArchive:  (id: string) => void
+  onSend:     (id: string) => void
 }
 
 export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: EmailDialogProps) {
-  const [body, setBody] = useState("")
-  const [feedback, setFeedback] = useState("")
+  const [body,       setBody]       = useState("")
+  const [feedback,   setFeedback]   = useState("")
   const [showThread, setShowThread] = useState(true)
+  const [isSaving,   setIsSaving]   = useState(false)
 
+  // Sync local draft body whenever the card's draft changes (SSE tokens stream in)
   useEffect(() => {
     if (email) {
       setBody(email.draft?.body ?? "")
@@ -47,9 +50,28 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
   const subject      = getThreadSubject(email.thread)
   const threadId     = email.thread.id ?? ""
 
-  function sendFeedback() {
+  // ── actions ─────────────────────────────────────────────────────────────────
+
+  async function handleDraftRequest() {
+    onDraft(threadId)            // optimistic: move card to review, request fires
+    await draftsService.requestDraft(threadId).catch(console.error)
+  }
+
+  async function handleSendFeedback() {
     if (!feedback.trim()) return
-    onClose()
+    // Save current body edits first, then send feedback to agent
+    await draftsService.saveDraft(threadId, body).catch(console.error)
+    await draftsService.refineDraft(threadId, feedback).catch(console.error)
+    setFeedback("")
+    // Refined draft tokens will stream in via SSE draft.chunk
+  }
+
+  async function handleBodyBlur() {
+    if (!isReview || !body.trim()) return
+    // Auto-save edits to Gmail Drafts on blur
+    setIsSaving(true)
+    await draftsService.saveDraft(threadId, body).catch(console.error)
+    setIsSaving(false)
   }
 
   return (
@@ -102,7 +124,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
 
             {isReview && (
               <div className="flex flex-col gap-3">
-                {/* Draft styled like a thread message */}
+                {/* Draft block */}
                 <div className="rounded-lg border border-primary/30 bg-card shadow-sm shadow-primary/5">
                   <div className="flex items-start gap-3 border-b border-primary/15 bg-primary/[0.04] px-4 py-3 rounded-t-lg">
                     <Avatar size="sm" className="mt-0.5 shrink-0">
@@ -116,7 +138,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                           Drafted by agent
                         </span>
                         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground/50">
-                          {email.draft?.generatedAt}
+                          {isSaving ? "Saving…" : (email.draft?.generatedAt ?? "")}
                         </span>
                       </div>
                       <span className="text-[11px] text-muted-foreground/60">to {latestSender.email}</span>
@@ -125,6 +147,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                   <Textarea
                     value={body}
                     onChange={e => setBody(e.target.value)}
+                    onBlur={handleBodyBlur}
                     rows={Math.max(6, body.split("\n").length + 1)}
                     className="min-h-0 resize-none rounded-none rounded-b-lg border-0 bg-transparent px-4 py-3 font-sans text-sm leading-relaxed shadow-none focus-visible:ring-0"
                   />
@@ -141,7 +164,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                       value={feedback}
                       onChange={e => setFeedback(e.target.value)}
                       onKeyDown={e => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendFeedback() }
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendFeedback() }
                       }}
                       placeholder="Tell the agent how to adjust this draft…"
                       className="flex-1 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/40 outline-none"
@@ -149,7 +172,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                     <Button
                       size="sm"
                       className="h-7 shrink-0 gap-1 px-2.5 text-xs"
-                      onClick={sendFeedback}
+                      onClick={handleSendFeedback}
                       disabled={!feedback.trim()}
                     >
                       <Send className="size-3" />
@@ -157,7 +180,7 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                     </Button>
                   </div>
                   <p className="px-1 text-[10px] text-muted-foreground/40">
-                    The agent will revise in the background — you'll see the updated draft on the board when it's ready. Or edit directly above.
+                    The agent will revise in the background — you'll see the updated draft stream in when ready.
                   </p>
                 </div>
               </div>
@@ -177,14 +200,14 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                 <MailOpen className="size-3.5" />
                 Mark as read
               </Button>
-              <Button className="gap-1.5" onClick={() => onDraft(threadId)}>
+              <Button className="gap-1.5" onClick={handleDraftRequest}>
                 <Sparkles className="size-3.5" />
                 Draft a reply
               </Button>
             </>
           ) : (
             <>
-              <span className="text-xs text-muted-foreground/50">Edits save automatically</span>
+              <span className="text-xs text-muted-foreground/50">Edits save on blur</span>
               <Button className="gap-1.5" onClick={() => { onSend(threadId); onClose() }}>
                 <Send className="size-3.5" />
                 Move to Send

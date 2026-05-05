@@ -2,33 +2,34 @@
 
 import { useState, useEffect } from "react"
 import { Minus, X, Paperclip, Send } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { Button }    from "@/components/ui/button"
+import { Input }     from "@/components/ui/input"
+import { Textarea }  from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
+import { draftsService }  from "@/services/drafts.service"
 import type { EmailCard } from "./types/email"
-import { getFrom } from "./helpers/headers"
+import { getFrom }                       from "./helpers/headers"
 import { getLatestMessage, getThreadSubject } from "./helpers/thread"
 
 interface ComposePopupProps {
-  email: EmailCard | null
+  email:   EmailCard | null
   onClose: () => void
-  onSent: (id: string) => void
+  onSent:  (threadId: string) => void
 }
 
 export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
   const [showCcBcc, setShowCcBcc] = useState(false)
-  const [to, setTo] = useState("")
-  const [cc, setCc] = useState("")
-  const [bcc, setBcc] = useState("")
-  const [subject, setSubject] = useState("")
-  const [body, setBody] = useState("")
-  const [sending, setSending] = useState(false)
+  const [to,        setTo]        = useState("")
+  const [cc,        setCc]        = useState("")
+  const [bcc,       setBcc]       = useState("")
+  const [subject,   setSubject]   = useState("")
+  const [body,      setBody]      = useState("")
+  const [sending,   setSending]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
 
   useEffect(() => {
     if (!email) return
-    const sender = getFrom(getLatestMessage(email.thread))
+    const sender  = getFrom(getLatestMessage(email.thread))
     const subject = getThreadSubject(email.thread)
     setTo(email.draft?.to?.join(", ") ?? sender.email)
     setCc(email.draft?.cc?.join(", ") ?? "")
@@ -37,22 +38,33 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
     setBody(email.draft?.body ?? "")
     setShowCcBcc(Boolean(email.draft?.cc?.length || email.draft?.bcc?.length))
     setSending(false)
+    setError(null)
   }, [email])
 
   if (!email) return null
 
-  function handleSend() {
-    if (!email) return
+  const threadId = email.thread.id ?? ""
+
+  async function handleSend() {
+    if (!email || !to.trim() || !body.trim()) return
     setSending(true)
-    setTimeout(() => {
-      onSent(email.thread.id ?? "")
+    setError(null)
+    try {
+      // Save any manual edits to the body first, then send via Gmail
+      await draftsService.saveDraft(threadId, body)
+      await draftsService.sendDraft(threadId)
+      onSent(threadId)
       onClose()
-    }, 700)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send — try again")
+      setSending(false)
+    }
   }
 
-  const recipientCount = (to.split(",").filter(Boolean).length)
-    + (cc.split(",").filter(Boolean).length)
-    + (bcc.split(",").filter(Boolean).length)
+  const recipientCount =
+    to.split(",").filter(Boolean).length +
+    cc.split(",").filter(Boolean).length +
+    bcc.split(",").filter(Boolean).length
 
   return (
     <div className="fixed bottom-0 right-6 z-50 flex w-[520px] flex-col rounded-t-lg border border-b-0 border-border bg-card shadow-2xl">
@@ -69,7 +81,6 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
 
       {/* Body */}
       <div className="flex flex-col">
-        {/* Recipients */}
         <div className="flex items-center gap-2 border-b border-border px-3 py-1">
           <span className="w-12 shrink-0 text-xs text-muted-foreground/60">To</span>
           <Input
@@ -84,6 +95,7 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
             </button>
           )}
         </div>
+
         {showCcBcc && (
           <>
             <div className="flex items-center gap-2 border-b border-border px-3 py-1">
@@ -97,7 +109,6 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
           </>
         )}
 
-        {/* Subject */}
         <div className="flex items-center gap-2 border-b border-border px-3 py-1">
           <span className="w-12 shrink-0 text-xs text-muted-foreground/60">Subject</span>
           <Input
@@ -107,7 +118,6 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
           />
         </div>
 
-        {/* Body */}
         <Textarea
           value={body}
           onChange={e => setBody(e.target.value)}
@@ -119,6 +129,9 @@ export function ComposePopup({ email, onClose, onSent }: ComposePopupProps) {
 
       {/* Footer */}
       <Separator />
+      {error && (
+        <p className="px-3 py-1 text-[11px] text-red-500">{error}</p>
+      )}
       <div className="flex items-center gap-2 px-3 py-2">
         <Button
           onClick={handleSend}
