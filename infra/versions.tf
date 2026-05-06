@@ -14,7 +14,7 @@ terraform {
     bucket         = "xyz-mailroomapp-tfstate"
     region         = "ap-south-1"
     encrypt        = true
-    dynamodb_table = "xyz-mailroomapp-tfstate"
+    use_lockfile   = true
   }
 }
 
