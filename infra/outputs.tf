@@ -1,6 +1,6 @@
 output "frontend_bucket" {
   value       = module.frontend.bucket_name
-  description = "Deploy built Next.js output here: aws s3 sync out/ s3://<bucket>"
+  description = "Upload built Next.js output: aws s3 sync out/ s3://<bucket> --delete"
 }
 
 output "cloudfront_distribution_id" {
@@ -9,7 +9,8 @@ output "cloudfront_distribution_id" {
 }
 
 output "cloudfront_domain" {
-  value = module.frontend.cloudfront_domain
+  value       = module.frontend.cloudfront_domain
+  description = "CloudFront domain (or your custom alias if configured)."
 }
 
 output "backend_role_arn" {
@@ -23,5 +24,6 @@ output "kms_key_id" {
 }
 
 output "table_names" {
-  value = module.backend.table_names
+  value       = module.backend.table_names
+  description = "Map of logical key → DynamoDB table name."
 }

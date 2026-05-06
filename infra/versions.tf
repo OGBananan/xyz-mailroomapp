@@ -8,9 +8,10 @@ terraform {
     }
   }
 
+  # key is intentionally omitted — pass it at init time:
+  #   terraform init -backend-config="key=dev/terraform.tfstate"
   backend "s3" {
     bucket         = "xyz-mailroomapp-tfstate"
-    key            = "prod/terraform.tfstate"
     region         = "ap-south-1"
     encrypt        = true
     dynamodb_table = "xyz-mailroomapp-tfstate"
