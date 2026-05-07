@@ -1,6 +1,2 @@
-env                   = "prod"
-region                = "ap-south-1"
-agentcore_runtime_arn = "arn:aws:bedrock:ap-south-1:ACCOUNT_ID:agent-runtime/AGENT_ID"
-enable_pitr           = true
-certificate_arn       = ""   # fill in once ACM cert is issued in us-east-1
-aliases               = []   # e.g. ["app.yourdomain.com"]
+region          = "ap-south-1"
+certificate_arn = "arn:aws:acm:us-east-1:856096730646:certificate/60116b31-ccf7-4d4f-abeb-34718c0c81ad"
