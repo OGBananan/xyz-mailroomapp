@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  S3_BUCKET: xyz-mailroomapp-web
+
+jobs:
+  deploy:
+    name: Build, Deploy & Provision
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Next.js ──────────────────────────────────────────────────────────────
+
+      - name: Install dependencies
+        working-directory: nextjs/xyz-mailroomapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: nextjs/xyz-mailroomapp
+        run: pnpm build
+
+      - name: Sync out/ to S3
+        run: |
+          aws s3 sync nextjs/xyz-mailroomapp/out/ s3://${{ env.S3_BUCKET }} \
+            --delete \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      # ── Terraform ────────────────────────────────────────────────────────────
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - name: Terraform Init
+        working-directory: infra
+        run: |
+          terraform init \
+            --backend-config="key=${{ secrets.TF_STATE_KEY }}"
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: |
+          terraform plan \
+            --var-file="vars/prod.tfvars"
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: |
+          terraform apply \
+            --auto-approve \
+            --var-file="vars/prod.tfvars"
