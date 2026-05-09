@@ -22,14 +22,12 @@ export const env = {
   // For DynamoDB Local set AWS_ENDPOINT_URL_DYNAMODB=http://localhost:8000 in your env.
   AWS_REGION: opt('AWS_REGION', 'ap-south-1'),
 
-  // KMS
-  KMS_KEY_ID: req('KMS_KEY_ID'),
-
-  // AgentCore
-  AGENT_RUNTIME_URL:     req('AGENT_RUNTIME_URL'),
-  AGENTCORE_RUNTIME_ARN: req('AGENTCORE_RUNTIME_ARN'),
-  AGENTCORE_QUALIFIER:   opt('AGENTCORE_QUALIFIER', ''),
-  AGENT_CLIENT:          opt('AGENT_CLIENT', 'agentcore'),  // 'agentcore' | 'stub'
+  // AgentCore — two separate runtimes
+  AGENT_RUNTIME_URL:       req('AGENT_RUNTIME_URL'),
+  EVALUATOR_RUNTIME_ARN:   req('EVALUATOR_RUNTIME_ARN'),   // triage/evaluator agent
+  DRAFT_RUNTIME_ARN:       req('DRAFT_RUNTIME_ARN'),       // draft + refine agent
+  AGENTCORE_QUALIFIER:     opt('AGENTCORE_QUALIFIER', ''),
+  AGENT_CLIENT:            opt('AGENT_CLIENT', 'agentcore'),  // 'agentcore' | 'stub'
 
   // Frontend
   FRONTEND_ORIGIN: opt('FRONTEND_ORIGIN', 'http://localhost:3000'),
@@ -37,4 +35,7 @@ export const env = {
   // Sync
   SYNC_CRON:         opt('SYNC_CRON', '*/2 * * * *'),
   SYNC_BACKFILL_MAX: Number(process.env['SYNC_BACKFILL_MAX'] ?? 50),
+
+  // Agent timeout (ms)
+  AGENT_TIMEOUT_MS: Number(process.env['AGENT_TIMEOUT_MS'] ?? 60_000),
 }

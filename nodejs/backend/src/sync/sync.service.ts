@@ -27,8 +27,7 @@ export class SyncService {
   ) {}
 
   async runForUser(userId: string): Promise<void> {
-    // Acquire lock: set status → 'syncing' only when currently 'idle'
-    const locked = await this.acquireSyncLock(userId)
+    const locked = await this.syncState.acquireLock(userId)
     if (!locked) { this.logger.debug(`sync already running for ${userId}`); return }
 
     this.events.publish(userId, 'sync.started', { userId })
@@ -56,24 +55,6 @@ export class SyncService {
       // Release lock on failure
       await this.syncState.update({ userId }, { status: 'idle' })
       this.events.publish(userId, 'error', { message: err instanceof Error ? err.message : 'sync failed' })
-    }
-  }
-
-  /** Conditional update: status → 'syncing' only if currently 'idle'. Returns true if acquired. */
-  private async acquireSyncLock(userId: string): Promise<boolean> {
-    try {
-      await this.syncState.update(
-        { userId },
-        { status: 'syncing' },
-        {
-          condition:       'attribute_not_exists(#s) OR #s = :idle',
-          conditionNames:  { '#s': 'status' },
-          conditionValues: { ':idle': 'idle' },
-        },
-      )
-      return true
-    } catch {
-      return false
     }
   }
 

@@ -1,11 +1,8 @@
 import { Injectable } from '@nestjs/common'
-import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { AgentRunEntity, type AgentRunItem, AGENT_RUN_TABLE_NAME } from '../entities/index.js'
-import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
-import { documentClient } from '../dynamo.client.js'
+import { GetItemCommand, PutItemCommand, DeleteItemCommand, UpdateItemCommand } from 'dynamodb-toolbox'
+import { AgentRunEntity, type AgentRunItem } from '../entities/index.js'
 
-type AgentRunKey = Pick<AgentRunItem, 'userId' | 'runId'>
+type AgentRunKey    = Pick<AgentRunItem, 'userId' | 'runId'>
 type AgentRunUpdate = Partial<Omit<AgentRunItem, 'userId' | 'runId'>>
 
 @Injectable()
@@ -19,12 +16,8 @@ export class AgentRunsRepo {
     await AgentRunEntity.build(PutItemCommand).item(item).send()
   }
 
-  async update(key: AgentRunKey, updates: AgentRunUpdate, opts?: UpdateOptions): Promise<void> {
-    await documentClient.send(new UpdateCommand({
-      TableName: AGENT_RUN_TABLE_NAME,
-      Key: key,
-      ...buildUpdateExpression(updates as Record<string, unknown>, opts),
-    }))
+  async update(key: AgentRunKey, updates: AgentRunUpdate): Promise<void> {
+    await AgentRunEntity.build(UpdateItemCommand).item({ ...key, ...updates }).send()
   }
 
   async delete(key: AgentRunKey): Promise<void> {
