@@ -1,19 +1,20 @@
-import { Controller, Get, Patch, Delete, Param, Body, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common'
-import { z } from 'zod'
+import { Controller, Get, Patch, Delete, Param, Body, UseGuards, NotFoundException, Logger } from '@nestjs/common'
 import { AuthGuard }          from '../common/guards/auth.guard.js'
 import { UserId }             from '../common/decorators/user.decorator.js'
 import { GoogleOAuthService } from '../auth/google-oauth.service.js'
 import { EventsService }      from '../events/events.service.js'
 import { CardsService }       from './cards.service.js'
-import type { BoardColumn }   from '../gmail/gmail.service.js'
-
-const MoveSchema = z.object({ column: z.enum(['decide', 'review', 'ready', 'hidden']) })
+import { DraftsService }      from '../drafts/drafts.service.js'
+import { MoveCardDto }        from './dto/move-card.dto.js'
 
 @Controller('cards')
 @UseGuards(AuthGuard)
 export class CardsController {
+  private readonly logger = new Logger(CardsController.name)
+
   constructor(
     private readonly cards:  CardsService,
+    private readonly drafts: DraftsService,
     private readonly oauth:  GoogleOAuthService,
     private readonly events: EventsService,
   ) {}
@@ -36,18 +37,22 @@ export class CardsController {
   async moveCard(
     @UserId() userId: string,
     @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Body() dto: MoveCardDto,
   ) {
-    const parsed = MoveSchema.safeParse(body)
-    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
-
     const token = await this.oauth.getValidAccessToken(userId)
     const card  = await this.cards.getCardDetail(userId, token, threadId)
     if (!card) throw new NotFoundException('Thread not found')
 
-    await this.cards.moveCard(userId, token, threadId, card.column as BoardColumn, parsed.data.column)
-    this.events.publish(userId, 'card.updated', { threadId, column: parsed.data.column })
-    return { ok: true, threadId, column: parsed.data.column }
+    await this.cards.moveCard(userId, token, threadId, card.column, dto.column)
+    this.events.publish(userId, 'card.updated', { threadId, column: dto.column })
+
+    if (dto.column === 'review') {
+      this.drafts.requestDraft(userId, token, threadId).catch(err =>
+        this.logger.error(err, `auto-draft failed on move ${threadId}`),
+      )
+    }
+
+    return { ok: true, threadId, column: dto.column }
   }
 
   @Delete(':threadId')
@@ -55,8 +60,7 @@ export class CardsController {
     const token = await this.oauth.getValidAccessToken(userId)
     const card  = await this.cards.getCardDetail(userId, token, threadId)
     if (!card) throw new NotFoundException('Thread not found')
-
-    await this.cards.moveCard(userId, token, threadId, card.column as BoardColumn, 'hidden')
+    await this.cards.moveCard(userId, token, threadId, card.column, 'hidden')
     this.events.publish(userId, 'card.updated', { threadId, column: 'hidden' })
     return { ok: true }
   }

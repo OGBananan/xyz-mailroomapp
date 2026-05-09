@@ -1,13 +1,11 @@
-import { Controller, Post, Put, Param, Body, UseGuards, BadRequestException, Logger } from '@nestjs/common'
+import { Controller, Post, Put, Param, Body, UseGuards, Logger } from '@nestjs/common'
 import { randomUUID } from 'crypto'
-import { z } from 'zod'
 import { AuthGuard }          from '../common/guards/auth.guard.js'
 import { UserId }             from '../common/decorators/user.decorator.js'
 import { GoogleOAuthService } from '../auth/google-oauth.service.js'
 import { DraftsService }      from './drafts.service.js'
-
-const RefineSchema    = z.object({ feedback: z.string().min(1) })
-const SaveDraftSchema = z.object({ body:     z.string().min(1) })
+import { RefineDraftDto }     from './dto/refine-draft.dto.js'
+import { SaveDraftDto }       from './dto/save-draft.dto.js'
 
 @Controller('cards/:threadId')
 @UseGuards(AuthGuard)
@@ -33,13 +31,11 @@ export class DraftsController {
   async refineDraft(
     @UserId() userId: string,
     @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Body() dto: RefineDraftDto,
   ) {
-    const parsed = RefineSchema.safeParse(body)
-    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
     const jobId = randomUUID()
     const token = await this.oauth.getValidAccessToken(userId)
-    this.drafts.requestDraft(userId, token, threadId, parsed.data.feedback).catch(err =>
+    this.drafts.requestDraft(userId, token, threadId, dto.feedback).catch(err =>
       this.logger.error(err, `draft refine failed ${threadId}`),
     )
     return { jobId }
@@ -49,12 +45,10 @@ export class DraftsController {
   async saveDraft(
     @UserId() userId: string,
     @Param('threadId') threadId: string,
-    @Body() body: unknown,
+    @Body() dto: SaveDraftDto,
   ) {
-    const parsed = SaveDraftSchema.safeParse(body)
-    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
     const token = await this.oauth.getValidAccessToken(userId)
-    await this.drafts.saveUserDraft(token, threadId, parsed.data.body)
+    await this.drafts.saveUserDraft(token, threadId, dto.body)
     return { ok: true }
   }
 
