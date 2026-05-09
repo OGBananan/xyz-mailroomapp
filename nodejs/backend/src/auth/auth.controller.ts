@@ -23,10 +23,14 @@ export class AuthController {
     if (!code) throw new BadRequestException('Missing code')
 
     const { tokens, profile } = await this.oauth.exchangeCode(code)
-    await this.auth.upsertUser(profile.userId, profile.email, profile.name)
-    await this.oauth.persistTokens(profile.userId, tokens)
 
-    const sid = await this.auth.createSession(profile.userId)
+    // TODO: restore when DynamoDB is configured
+    // await this.auth.upsertUser(profile.userId, profile.email, profile.name)
+    // await this.oauth.persistTokens(profile.userId, tokens)
+    // const sid = await this.auth.createSession(profile.userId)
+    this.oauth.storeDevToken(profile.userId, tokens.accessToken, profile.email, profile.name)
+    const sid = profile.userId
+
     res.cookie('sid', sid, {
       httpOnly: true,
       secure:   env.NODE_ENV === 'production',
@@ -40,7 +44,9 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async logout(@Req() req: Request, @Res() res: Response) {
     const sid = req.cookies?.['sid'] as string | undefined
-    if (sid) await this.auth.destroySession(sid)
+    // TODO: restore when DynamoDB is configured
+    // if (sid) await this.auth.destroySession(sid)
+    if (sid) this.oauth.clearDevToken(sid)
     res.clearCookie('sid')
     res.json({ ok: true })
   }
