@@ -1,11 +1,3 @@
-import { apiClient } from "./api-client"
-import type { SyncStatus } from "@/types/api"
-
-export const syncService = {
-  /** Kick off an incremental Gmail sync for the current user. Returns immediately;
-   *  progress and completion arrive via SSE (sync.started, sync.completed). */
-  kickoff: () => apiClient.post<{ jobId: string }>("/api/sync"),
-
-  /** Current sync state — useful for polling or initial state hydration. */
-  getStatus: () => apiClient.get<SyncStatus>("/api/sync/status"),
-}
+// Sync is driven by the backend cron — no API trigger needed.
+// The frontend reloads the board on a 2-minute interval (see use-board.ts).
+export const syncService = {}
