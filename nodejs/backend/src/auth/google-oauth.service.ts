@@ -23,8 +23,25 @@ export interface RawTokens {
   scope:        string
 }
 
+interface DevTokenEntry { accessToken: string; email: string; name: string }
+
 @Injectable()
 export class GoogleOAuthService {
+  // TODO: remove when DynamoDB is configured
+  private readonly devTokens = new Map<string, DevTokenEntry>()
+
+  storeDevToken(userId: string, accessToken: string, email: string, name: string): void {
+    this.devTokens.set(userId, { accessToken, email, name })
+  }
+
+  clearDevToken(userId: string): void {
+    this.devTokens.delete(userId)
+  }
+
+  getDevToken(userId: string): DevTokenEntry | undefined {
+    return this.devTokens.get(userId)
+  }
+
   constructor(
     private readonly crypto: CryptoService,
     private readonly tokens: TokensRepo,
@@ -85,6 +102,10 @@ export class GoogleOAuthService {
 
   /** Returns a valid access token, refreshing automatically if needed. */
   async getValidAccessToken(userId: string): Promise<string> {
+    // TODO: remove when DynamoDB is configured
+    const dev = this.devTokens.get(userId)
+    if (dev) return dev.accessToken
+
     const record = await this.tokens.get({ userId })
     if (!record) throw new Error(`No OAuth tokens for user ${userId}`)
 

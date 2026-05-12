@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common'
-import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { LoggerModule } from 'nestjs-pino'
 import { env } from './config/env.js'
@@ -13,6 +12,7 @@ import { SyncModule } from './sync/sync.module.js'
 import { CardsModule } from './cards/cards.module.js'
 import { DraftsModule } from './drafts/drafts.module.js'
 import { ComposeModule } from './compose/compose.module.js'
+import { HealthModule }  from './health/health.module.js'
 
 @Module({
   imports: [
@@ -22,7 +22,6 @@ import { ComposeModule } from './compose/compose.module.js'
         : { level: 'info' },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
-    ScheduleModule.forRoot(),
     DynamoModule,
     CryptoModule,
     AuthModule,
@@ -33,6 +32,7 @@ import { ComposeModule } from './compose/compose.module.js'
     CardsModule,
     DraftsModule,
     ComposeModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

@@ -27,19 +27,12 @@ export interface CardDetail {
 
 @Injectable()
 export class CardsService {
-  private readonly cache = new Map<string, { data: Board; expiresAt: number }>()
-
   constructor(
     private readonly gmail:      GmailService,
     private readonly threadMeta: ThreadMetaRepo,
   ) {}
 
-  invalidateCache(userId: string) { this.cache.delete(userId) }
-
   async getBoard(userId: string, accessToken: string): Promise<Board> {
-    const cached = this.cache.get(userId)
-    if (cached && cached.expiresAt > Date.now()) return cached.data
-
     const columns: BoardColumn[] = ['decide', 'review', 'ready', 'hidden']
 
     const threadIdsByCol = await Promise.all(
@@ -47,7 +40,6 @@ export class CardsService {
     )
     const allIds = threadIdsByCol.flat()
 
-    // Fetch summaries with concurrency cap
     const summaries = await this.batchSummaries(accessToken, allIds)
     const metaMap   = await this.threadMeta.batchGet(userId, allIds)
 
@@ -66,7 +58,6 @@ export class CardsService {
       }
     })
 
-    this.cache.set(userId, { data: board, expiresAt: Date.now() + 30_000 })
     return board
   }
 
@@ -101,6 +92,5 @@ export class CardsService {
 
   async moveCard(userId: string, accessToken: string, threadId: string, from: BoardColumn, to: BoardColumn): Promise<void> {
     await this.gmail.moveThread(accessToken, userId, threadId, from, to)
-    this.invalidateCache(userId)
   }
 }

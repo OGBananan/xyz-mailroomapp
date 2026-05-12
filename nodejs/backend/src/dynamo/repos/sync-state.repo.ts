@@ -1,15 +1,14 @@
-import { Injectable } from '@nestjs/common'
-import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { SyncStateEntity, type SyncStateItem, SYNC_STATE_TABLE_NAME } from '../entities/index.js'
-import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
-import { documentClient } from '../dynamo.client.js'
+import { Injectable, Logger } from '@nestjs/common'
+import { GetItemCommand, PutItemCommand, DeleteItemCommand, UpdateItemCommand } from 'dynamodb-toolbox'
+import { SyncStateEntity, type SyncStateItem } from '../entities/index.js'
 
 type SyncStateKey    = Pick<SyncStateItem, 'userId'>
 type SyncStateUpdate = Partial<Omit<SyncStateItem, 'userId'>>
 
 @Injectable()
 export class SyncStateRepo {
+  private readonly logger = new Logger(SyncStateRepo.name)
+
   async get(key: SyncStateKey): Promise<SyncStateItem | null> {
     const { Item } = await SyncStateEntity.build(GetItemCommand).key(key).send()
     return (Item as SyncStateItem | undefined) ?? null
@@ -19,15 +18,25 @@ export class SyncStateRepo {
     await SyncStateEntity.build(PutItemCommand).item(item).send()
   }
 
-  async update(key: SyncStateKey, updates: SyncStateUpdate, opts?: UpdateOptions): Promise<void> {
-    await documentClient.send(new UpdateCommand({
-      TableName: SYNC_STATE_TABLE_NAME,
-      Key: key,
-      ...buildUpdateExpression(updates as Record<string, unknown>, opts),
-    }))
+  async update(key: SyncStateKey, updates: SyncStateUpdate): Promise<void> {
+    await SyncStateEntity.build(UpdateItemCommand).item({ ...key, ...updates }).send()
   }
 
   async delete(key: SyncStateKey): Promise<void> {
     await SyncStateEntity.build(DeleteItemCommand).key(key).send()
+  }
+
+  /** Conditional update: status → 'syncing' only if currently absent or 'idle'. */
+  async acquireLock(userId: string): Promise<boolean> {
+    try {
+      await SyncStateEntity.build(UpdateItemCommand)
+        .item({ userId, status: 'syncing' })
+        .options({ condition: { or: [{ attr: 'status', exists: false }, { attr: 'status', eq: 'idle' }] } })
+        .send()
+      return true
+    } catch (err) {
+      this.logger.debug(err, `sync lock already held for ${userId}`)
+      return false
+    }
   }
 }

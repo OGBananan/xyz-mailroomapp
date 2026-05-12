@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react"
 import { usePathname, useRouter }    from "next/navigation"
 import { useAuth }                   from "@/contexts/auth-context"
 
-const PUBLIC_PATHS = ["/login"]
+const PUBLIC_PATHS = ["/login", "/login/"]
 
 /**
  * Redirects unauthenticated users to /login.

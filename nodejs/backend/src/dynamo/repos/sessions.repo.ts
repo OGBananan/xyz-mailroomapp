@@ -1,11 +1,8 @@
 import { Injectable } from '@nestjs/common'
-import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { SessionEntity, type SessionItem, SESSION_TABLE_NAME } from '../entities/index.js'
-import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
-import { documentClient } from '../dynamo.client.js'
+import { GetItemCommand, PutItemCommand, DeleteItemCommand, UpdateItemCommand } from 'dynamodb-toolbox'
+import { SessionEntity, type SessionItem } from '../entities/index.js'
 
-type SessionKey = Pick<SessionItem, 'sid'>
+type SessionKey    = Pick<SessionItem, 'sid'>
 type SessionUpdate = Partial<Omit<SessionItem, 'sid'>>
 
 @Injectable()
@@ -19,12 +16,8 @@ export class SessionsRepo {
     await SessionEntity.build(PutItemCommand).item(item).send()
   }
 
-  async update(key: SessionKey, updates: SessionUpdate, opts?: UpdateOptions): Promise<void> {
-    await documentClient.send(new UpdateCommand({
-      TableName: SESSION_TABLE_NAME,
-      Key: key,
-      ...buildUpdateExpression(updates as Record<string, unknown>, opts),
-    }))
+  async update(key: SessionKey, updates: SessionUpdate): Promise<void> {
+    await SessionEntity.build(UpdateItemCommand).item({ ...key, ...updates }).send()
   }
 
   async delete(key: SessionKey): Promise<void> {

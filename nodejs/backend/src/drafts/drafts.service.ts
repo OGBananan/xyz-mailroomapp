@@ -1,11 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import type { gmail_v1 } from 'googleapis'
-import { GmailService }       from '../gmail/gmail.service.js'
-import { AgentService }       from '../agent/agent.service.js'
-import { EventsService }      from '../events/events.service.js'
-import { AgentRunsRepo }      from '../dynamo/repos/agent-runs.repo.js'
-import { CardsService }       from '../cards/cards.service.js'
+import { GmailService }  from '../gmail/gmail.service.js'
+import { AgentService }  from '../agent/agent.service.js'
+import { EventsService } from '../events/events.service.js'
+import { AgentRunsRepo } from '../dynamo/repos/agent-runs.repo.js'
 
 interface DraftContext {
   threadId:        string
@@ -24,7 +23,6 @@ export class DraftsService {
     private readonly agent:     AgentService,
     private readonly events:    EventsService,
     private readonly agentRuns: AgentRunsRepo,
-    private readonly cards:     CardsService,
   ) {}
 
   async buildContext(accessToken: string, threadId: string): Promise<DraftContext | null> {
@@ -99,7 +97,6 @@ export class DraftsService {
     if (!draft) throw new NotFoundException('No draft found for thread')
     await this.gmail.sendDraft(accessToken, draft.draftId)
     await this.gmail.moveThread(accessToken, userId, threadId, 'review', 'ready')
-    this.cards.invalidateCache(userId)
     this.events.publish(userId, 'card.updated', { threadId, column: 'ready' })
   }
 }

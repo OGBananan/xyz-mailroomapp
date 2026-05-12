@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { GetItemCommand, PutItemCommand, DeleteItemCommand } from 'dynamodb-toolbox'
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { UserEntity, type UserItem, USER_TABLE_NAME } from '../entities/index.js'
-import { buildUpdateExpression, type UpdateOptions } from '../update-builder.js'
-import { documentClient } from '../dynamo.client.js'
+import { GetItemCommand, PutItemCommand, DeleteItemCommand, UpdateItemCommand } from 'dynamodb-toolbox'
+import { UserEntity, type UserItem } from '../entities/index.js'
 
 type UserKey    = Pick<UserItem, 'userId'>
 type UserUpdate = Partial<Omit<UserItem, 'userId'>>
@@ -19,12 +16,8 @@ export class UsersRepo {
     await UserEntity.build(PutItemCommand).item(item).send()
   }
 
-  async update(key: UserKey, updates: UserUpdate, opts?: UpdateOptions): Promise<void> {
-    await documentClient.send(new UpdateCommand({
-      TableName: USER_TABLE_NAME,
-      Key: key,
-      ...buildUpdateExpression(updates as Record<string, unknown>, opts),
-    }))
+  async update(key: UserKey, updates: UserUpdate): Promise<void> {
+    await UserEntity.build(UpdateItemCommand).item({ ...key, ...updates }).send()
   }
 
   async delete(key: UserKey): Promise<void> {
