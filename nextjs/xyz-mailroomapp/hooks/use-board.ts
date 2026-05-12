@@ -1,13 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { cardsService }   from "@/services/cards.service"
-import { syncService }    from "@/services/sync.service"
+import { cardsService }      from "@/services/cards.service"
 import { createEventStream } from "@/services/events.service"
 import { boardCardToEmailCard, upgradeWithDetail } from "@/lib/card-transform"
 import type { BoardColumn } from "@/types/api"
 import type { EmailCard }   from "@/components/board/types/email"
 import type { Status }      from "@/components/board/types/status"
+
+const SYNC_INTERVAL_MS = 2 * 60 * 1000   // 2 minutes
 
 export interface UseBoardReturn {
   emails:      EmailCard[]
@@ -15,17 +16,11 @@ export interface UseBoardReturn {
   isSyncing:   boolean
   lastSynced:  Date | null
   error:       string | null
-  /** Reload the board from the API. */
   reload:      () => Promise<void>
-  /** Trigger a Gmail incremental sync (backend streams progress via SSE). */
   refresh:     () => void
-  /** Fetch the full thread + draft for a card and upgrade its local state. */
   loadDetail:  (threadId: string) => Promise<void>
-  /** Optimistically move a card column and call the API. */
   moveCard:    (threadId: string, column: BoardColumn) => void
-  /** Remove a card from the visible board (archive / hide). */
   hideCard:    (threadId: string) => void
-  /** Append a draft chunk token to a card's draft body (SSE streaming). */
   appendDraftChunk: (threadId: string, token: string) => void
 }
 
@@ -58,29 +53,29 @@ export function useBoard(): UseBoardReturn {
     }
   }, [])
 
-  // ── SSE subscription ────────────────────────────────────────────────────────
+  // ── SSE + 2-min auto-refresh ────────────────────────────────────────────────
 
   useEffect(() => {
     reload()
 
+    // Auto-refresh board every 2 minutes
+    const interval = setInterval(reload, SYNC_INTERVAL_MS)
+
     unsubRef.current = createEventStream({
-      "sync.started":   ()                                    => setIsSyncing(true),
-      "sync.completed": ()                                    => { setIsSyncing(false); reload() },
-      "card.created":   ()                                    => reload(),
-      "card.updated":   ({ threadId, column })                => {
+      "sync.started":   ()                       => setIsSyncing(true),
+      "sync.completed": ()                       => { setIsSyncing(false); reload() },
+      "card.created":   ()                       => reload(),
+      "card.updated":   ({ threadId, column })   => {
         if (column === "hidden") {
           setEmails(prev => prev.filter(e => e.thread.id !== threadId))
           return
         }
         setEmails(prev => prev.map(e =>
-          e.thread.id === threadId
-            ? { ...e, state: column as Status }
-            : e,
+          e.thread.id === threadId ? { ...e, state: column as Status } : e,
         ))
       },
-      "draft.chunk":  ({ threadId, token })                   => appendDraftChunk(threadId, token),
-      "draft.ready":  ({ threadId })                          => {
-        // Mark card as having a draft if it wasn't already
+      "draft.chunk":  ({ threadId, token })      => appendDraftChunk(threadId, token),
+      "draft.ready":  ({ threadId })             => {
         setEmails(prev => prev.map(e =>
           e.thread.id === threadId && !e.draft
             ? { ...e, draft: { body: "", generatedAt: "Just now" } }
@@ -89,18 +84,18 @@ export function useBoard(): UseBoardReturn {
       },
     })
 
-    return () => { unsubRef.current?.() }
-  // reload is stable (useCallback with no deps), so this runs once
+    return () => {
+      clearInterval(interval)
+      unsubRef.current?.()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── actions ─────────────────────────────────────────────────────────────────
 
   const refresh = useCallback(() => {
-    if (isSyncing) return
-    syncService.kickoff().catch(console.error)
-    // isSyncing will be set to true via SSE sync.started event
-  }, [isSyncing])
+    reload()
+  }, [reload])
 
   const loadDetail = useCallback(async (threadId: string) => {
     try {
@@ -123,7 +118,7 @@ export function useBoard(): UseBoardReturn {
     }
     cardsService.moveCard(threadId, column).catch(err => {
       console.error("[useBoard] moveCard failed", err)
-      reload() // rollback on failure
+      reload()
     })
   }, [reload])
 
@@ -141,10 +136,7 @@ export function useBoard(): UseBoardReturn {
       const currentBody = e.draft?.body ?? ""
       return {
         ...e,
-        draft: {
-          body:        currentBody + token,
-          generatedAt: e.draft?.generatedAt ?? "Streaming…",
-        },
+        draft: { body: currentBody + token, generatedAt: e.draft?.generatedAt ?? "Streaming…" },
       }
     }))
   }
