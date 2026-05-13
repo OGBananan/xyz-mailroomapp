@@ -1,6 +1,12 @@
 variable "prefix" {
   type        = string
-  description = "Resource name prefix. Must match TABLE_NAME constants in entity files (e.g. \"xyz-mailroomapp\")."
+  description = "Reverse-domain project prefix matching TABLE_NAME constants in entity files (e.g. \"xyz-mailroomapp\" for mailroomapp.xyz)."
+}
+
+variable "service_name" {
+  type        = string
+  description = "Name of the service that owns these resources — becomes part of the IAM user and policy name (e.g. \"nestjs-api\"). Results in names like {prefix}-{service_name}."
+  default     = "nestjs-api"
 }
 
 variable "enable_pitr" {

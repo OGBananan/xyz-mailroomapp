@@ -1,9 +1,17 @@
+# Naming convention: {prefix}-{service_name}
+# prefix      = reverse-domain project id  (e.g. xyz-mailroomapp  → mailroomapp.xyz)
+# service_name = what this service IS       (e.g. nestjs-api)
+# Result:      xyz-mailroomapp-nestjs-api  — unambiguous in any AWS account
+
+locals {
+  service_id = "${var.prefix}-${var.service_name}"
+}
+
 # ── IAM policy document ───────────────────────────────────────────────────────
 
 data "aws_iam_policy_document" "backend" {
-  # DynamoDB — full CRUD on all backend tables
   statement {
-    sid    = "DynamoDB"
+    sid    = "DynamoDBTableAccess"
     effect = "Allow"
     actions = [
       "dynamodb:GetItem",
@@ -16,11 +24,10 @@ data "aws_iam_policy_document" "backend" {
     resources = [for t in aws_dynamodb_table.tables : t.arn]
   }
 
-  # AgentCore — only added when runtime ARNs are supplied
   dynamic "statement" {
     for_each = length(var.agentcore_runtime_arns) > 0 ? [1] : []
     content {
-      sid       = "AgentCore"
+      sid       = "BedrockAgentCoreInvoke"
       effect    = "Allow"
       actions   = ["bedrock-agentcore:InvokeAgentRuntime"]
       resources = var.agentcore_runtime_arns
@@ -31,17 +38,18 @@ data "aws_iam_policy_document" "backend" {
 # ── Managed policy ────────────────────────────────────────────────────────────
 
 resource "aws_iam_policy" "backend" {
-  name        = "${var.prefix}-backend"
-  description = "Grants the ${var.prefix} backend service access to its DynamoDB tables and AgentCore runtimes."
+  name        = "${local.service_id}-policy"
+  description = "Grants ${local.service_id} access to its DynamoDB tables and (optionally) AgentCore runtimes."
   policy      = data.aws_iam_policy_document.backend.json
-  tags        = var.tags
+  tags        = merge(var.tags, { Name = "${local.service_id}-policy" })
 }
 
 # ── IAM user ──────────────────────────────────────────────────────────────────
 
 resource "aws_iam_user" "backend" {
-  name = "${var.prefix}-backend"
-  tags = merge(var.tags, { Name = "${var.prefix}-backend" })
+  name = local.service_id
+  path = "/${var.prefix}/"
+  tags = merge(var.tags, { Name = local.service_id })
 }
 
 resource "aws_iam_user_policy_attachment" "backend" {
@@ -49,7 +57,7 @@ resource "aws_iam_user_policy_attachment" "backend" {
   policy_arn = aws_iam_policy.backend.arn
 }
 
-# ── Access key (stored in Terraform state — state bucket is encrypted) ────────
+# ── Access key ────────────────────────────────────────────────────────────────
 
 resource "aws_iam_access_key" "backend" {
   user = aws_iam_user.backend.name
