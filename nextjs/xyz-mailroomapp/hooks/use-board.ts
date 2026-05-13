@@ -12,25 +12,27 @@ import type { Status }      from "@/components/board/types/status"
 const SYNC_INTERVAL_MS = 2 * 60 * 1000   // 2 minutes
 
 export interface UseBoardReturn {
-  emails:      EmailCard[]
-  isLoading:   boolean
-  isSyncing:   boolean
-  lastSynced:  Date | null
-  error:       string | null
-  reload:      () => Promise<void>
-  refresh:     () => void
-  loadDetail:  (threadId: string) => Promise<void>
-  moveCard:    (threadId: string, column: BoardColumn) => void
-  hideCard:    (threadId: string) => void
+  emails:          EmailCard[]
+  isLoading:       boolean
+  isSyncing:       boolean
+  lastSynced:      Date | null
+  error:           string | null
+  movingThreadId:  string | null
+  reload:          () => Promise<void>
+  refresh:         () => void
+  loadDetail:      (threadId: string) => Promise<void>
+  moveCard:        (threadId: string, column: BoardColumn) => void
+  hideCard:        (threadId: string) => void
   appendDraftChunk: (threadId: string, token: string) => void
 }
 
 export function useBoard(): UseBoardReturn {
-  const [emails,     setEmails]     = useState<EmailCard[]>([])
-  const [isLoading,  setIsLoading]  = useState(true)
-  const [isSyncing,  setIsSyncing]  = useState(false)
-  const [lastSynced, setLastSynced] = useState<Date | null>(null)
-  const [error,      setError]      = useState<string | null>(null)
+  const [emails,          setEmails]          = useState<EmailCard[]>([])
+  const [isLoading,       setIsLoading]       = useState(true)
+  const [isSyncing,       setIsSyncing]       = useState(false)
+  const [lastSynced,      setLastSynced]      = useState<Date | null>(null)
+  const [error,           setError]           = useState<string | null>(null)
+  const [movingThreadId,  setMovingThreadId]  = useState<string | null>(null)
 
   const unsubRef = useRef<(() => void) | null>(null)
 
@@ -113,13 +115,17 @@ export function useBoard(): UseBoardReturn {
   }, [])
 
   const moveCard = useCallback((threadId: string, column: BoardColumn) => {
-    if (column === "hidden") {
-      setEmails(prev => prev.filter(e => e.thread.id !== threadId))
-    } else {
-      setEmails(prev => prev.map(e =>
-        e.thread.id === threadId ? { ...e, state: column as Status } : e,
-      ))
-    }
+    setMovingThreadId(threadId)
+    setTimeout(() => {
+      setMovingThreadId(null)
+      if (column === "hidden") {
+        setEmails(prev => prev.filter(e => e.thread.id !== threadId))
+      } else {
+        setEmails(prev => prev.map(e =>
+          e.thread.id === threadId ? { ...e, state: column as Status } : e,
+        ))
+      }
+    }, 250)
     cardsService.moveCard(threadId, column).catch(err => {
       console.error("[useBoard] moveCard failed", err)
       reload()
@@ -146,7 +152,7 @@ export function useBoard(): UseBoardReturn {
   }
 
   return {
-    emails, isLoading, isSyncing, lastSynced, error,
+    emails, isLoading, isSyncing, lastSynced, error, movingThreadId,
     reload, refresh, loadDetail, moveCard, hideCard, appendDraftChunk,
   }
 }

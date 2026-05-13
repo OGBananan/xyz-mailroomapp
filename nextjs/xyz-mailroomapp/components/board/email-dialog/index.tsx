@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Sparkles, MailOpen, ChevronRight, Send } from "lucide-react"
+import { Sparkles, MailOpen, ChevronRight, Send, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button }   from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { Button }    from "@/components/ui/button"
+import { Textarea }  from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { draftsService } from "@/services/drafts.service"
 import type { EmailCard }  from "../types/email"
@@ -27,17 +27,21 @@ interface EmailDialogProps {
 }
 
 export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: EmailDialogProps) {
-  const [body,       setBody]       = useState("")
-  const [feedback,   setFeedback]   = useState("")
-  const [showThread, setShowThread] = useState(true)
-  const [isSaving,   setIsSaving]   = useState(false)
+  const [body,               setBody]               = useState("")
+  const [feedback,           setFeedback]           = useState("")
+  const [showThread,         setShowThread]         = useState(true)
+  const [isSaving,           setIsSaving]           = useState(false)
+  const [isDraftRequesting,  setIsDraftRequesting]  = useState(false)
+  const [isRefining,         setIsRefining]         = useState(false)
+  const [isSending,          setIsSending]          = useState(false)
 
-  // Sync local draft body whenever the card's draft changes (SSE tokens stream in)
   useEffect(() => {
     if (email) {
       setBody(email.draft?.body ?? "")
       setFeedback("")
       setShowThread(email.state === "decide")
+      // If we're in review and draft body just arrived, clear the requesting state
+      if (email.draft?.body) setIsDraftRequesting(false)
     }
   }, [email])
 
@@ -53,25 +57,33 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
   // ── actions ─────────────────────────────────────────────────────────────────
 
   async function handleDraftRequest() {
-    onDraft(threadId)            // optimistic: move card to review, request fires
+    setIsDraftRequesting(true)
+    onDraft(threadId)
     await draftsService.requestDraft(threadId).catch(console.error)
+    // isDraftRequesting cleared by useEffect when body arrives via SSE
   }
 
   async function handleSendFeedback() {
     if (!feedback.trim()) return
-    // Save current body edits first, then send feedback to agent
+    setIsRefining(true)
     await draftsService.saveDraft(threadId, body).catch(console.error)
     await draftsService.refineDraft(threadId, feedback).catch(console.error)
     setFeedback("")
-    // Refined draft tokens will stream in via SSE draft.chunk
+    setIsRefining(false)
   }
 
   async function handleBodyBlur() {
     if (!isReview || !body.trim()) return
-    // Auto-save edits to Gmail Drafts on blur
     setIsSaving(true)
     await draftsService.saveDraft(threadId, body).catch(console.error)
     setIsSaving(false)
+  }
+
+  async function handleSend() {
+    setIsSending(true)
+    await new Promise(r => setTimeout(r, 350))
+    onSend(threadId)
+    onClose()
   }
 
   return (
@@ -125,7 +137,10 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
             {isReview && (
               <div className="flex flex-col gap-3">
                 {/* Draft block */}
-                <div className="rounded-lg border border-primary/30 bg-card shadow-sm shadow-primary/5">
+                <div className={cn(
+                  "rounded-lg border border-primary/30 bg-card shadow-sm shadow-primary/5 transition-opacity duration-300",
+                  isDraftRequesting && "opacity-60",
+                )}>
                   <div className="flex items-start gap-3 border-b border-primary/15 bg-primary/[0.04] px-4 py-3 rounded-t-lg">
                     <Avatar size="sm" className="mt-0.5 shrink-0">
                       <AvatarFallback className="bg-primary/10 text-[10px] text-primary">AB</AvatarFallback>
@@ -134,8 +149,10 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-foreground">Anurag Bansal</span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-medium text-primary">
-                          <Sparkles className="size-2.5" />
-                          Drafted by agent
+                          {isDraftRequesting
+                            ? <><Loader2 className="size-2.5 animate-spin" />Generating…</>
+                            : <><Sparkles className="size-2.5" />Drafted by agent</>
+                          }
                         </span>
                         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground/50">
                           {isSaving ? "Saving…" : (email.draft?.generatedAt ?? "")}
@@ -148,8 +165,10 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                     value={body}
                     onChange={e => setBody(e.target.value)}
                     onBlur={handleBodyBlur}
+                    disabled={isDraftRequesting}
                     rows={Math.max(6, body.split("\n").length + 1)}
-                    className="min-h-0 resize-none rounded-none rounded-b-lg border-0 bg-transparent px-4 py-3 font-sans text-sm leading-relaxed shadow-none focus-visible:ring-0"
+                    className="min-h-0 resize-none rounded-none rounded-b-lg border-0 bg-transparent px-4 py-3 font-sans text-sm leading-relaxed shadow-none focus-visible:ring-0 disabled:opacity-50"
+                    placeholder={isDraftRequesting ? "Agent is writing…" : ""}
                   />
                 </div>
 
@@ -158,25 +177,33 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                   <div className={cn(
                     "flex items-center gap-2 rounded-lg border bg-card px-3 py-2 transition-colors",
                     "border-border focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/15",
+                    isRefining && "opacity-60 pointer-events-none",
                   )}>
-                    <Sparkles className="size-3.5 shrink-0 text-muted-foreground/40" />
+                    {isRefining
+                      ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground/40" />
+                      : <Sparkles className="size-3.5 shrink-0 text-muted-foreground/40" />
+                    }
                     <input
                       value={feedback}
                       onChange={e => setFeedback(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendFeedback() }
                       }}
-                      placeholder="Tell the agent how to adjust this draft…"
-                      className="flex-1 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/40 outline-none"
+                      disabled={isRefining}
+                      placeholder={isRefining ? "Agent is revising…" : "Tell the agent how to adjust this draft…"}
+                      className="flex-1 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/40 outline-none disabled:cursor-not-allowed"
                     />
                     <Button
                       size="sm"
                       className="h-7 shrink-0 gap-1 px-2.5 text-xs"
                       onClick={handleSendFeedback}
-                      disabled={!feedback.trim()}
+                      disabled={!feedback.trim() || isRefining}
                     >
-                      <Send className="size-3" />
-                      Send to agent
+                      {isRefining
+                        ? <Loader2 className="size-3 animate-spin" />
+                        : <Send className="size-3" />
+                      }
+                      {isRefining ? "Refining…" : "Send to agent"}
                     </Button>
                   </div>
                   <p className="px-1 text-[10px] text-muted-foreground/40">
@@ -200,17 +227,31 @@ export function EmailDialog({ email, onClose, onDraft, onArchive, onSend }: Emai
                 <MailOpen className="size-3.5" />
                 Mark as read
               </Button>
-              <Button className="gap-1.5" onClick={handleDraftRequest}>
-                <Sparkles className="size-3.5" />
-                Draft a reply
+              <Button
+                className="gap-1.5"
+                onClick={handleDraftRequest}
+                disabled={isDraftRequesting}
+              >
+                {isDraftRequesting
+                  ? <Loader2 className="size-3.5 animate-spin" />
+                  : <Sparkles className="size-3.5" />
+                }
+                {isDraftRequesting ? "Requesting…" : "Draft a reply"}
               </Button>
             </>
           ) : (
             <>
               <span className="text-xs text-muted-foreground/50">Edits save on blur</span>
-              <Button className="gap-1.5" onClick={() => { onSend(threadId); onClose() }}>
-                <Send className="size-3.5" />
-                Move to Send
+              <Button
+                className="gap-1.5"
+                onClick={handleSend}
+                disabled={isSending}
+              >
+                {isSending
+                  ? <Loader2 className="size-3.5 animate-spin" />
+                  : <Send className="size-3.5" />
+                }
+                {isSending ? "Moving…" : "Move to Send"}
               </Button>
             </>
           )}

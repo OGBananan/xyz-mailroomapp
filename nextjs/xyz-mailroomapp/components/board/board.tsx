@@ -22,31 +22,27 @@ export function Board() {
     loadDetail,
     moveCard,
     hideCard,
+    movingThreadId,
   } = useBoard()
 
   const [openEmailId, setOpenEmailId] = useState<string | null>(null)
   const [composing,   setComposing]   = useState<EmailCard | null>(null)
 
-  // ── sync label ──────────────────────────────────────────────────────────────
   const syncLabel = useMemo(() => {
     if (!lastSynced) return "never"
     const minAgo = Math.floor((Date.now() - lastSynced.getTime()) / 60_000)
     return minAgo === 0 ? "just now" : `${minAgo}m ago`
   }, [lastSynced])
 
-  // ── board grouping ──────────────────────────────────────────────────────────
   const byColumn = useMemo(() => {
     const out: Record<Status, EmailCard[]> = { decide: [], review: [], ready: [] }
     emails.forEach(e => out[e.state].push(e))
     return out
   }, [emails])
 
-  // The open email is always read from live state so dialog reflects SSE updates
   const openEmail = openEmailId
     ? emails.find(e => e.thread.id === openEmailId) ?? null
     : null
-
-  // ── handlers ────────────────────────────────────────────────────────────────
 
   function handleCardClick(email: EmailCard) {
     if (email.state === "ready") {
@@ -54,18 +50,15 @@ export function Board() {
     } else {
       const threadId = email.thread.id ?? null
       setOpenEmailId(threadId)
-      // Upgrade from summary stub → full thread + real draft
       if (threadId) loadDetail(threadId)
     }
   }
 
   function handleDraft(threadId: string) {
-    // Move to review (optimistic); draft tokens arrive via SSE draft.chunk
     moveCard(threadId, "review")
   }
 
   function handleSend(threadId: string) {
-    // Move card to ready column — actual sending happens in ComposePopup
     moveCard(threadId, "ready")
     setOpenEmailId(null)
   }
@@ -87,7 +80,7 @@ export function Board() {
               ) : (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground/40">
                   <span className={cn(
-                    "size-1.5 rounded-full",
+                    "size-1.5 rounded-full transition-colors",
                     isSyncing ? "animate-pulse bg-amber-400" : "bg-green-500",
                   )} />
                   {isSyncing
@@ -109,30 +102,18 @@ export function Board() {
 
           {/* Columns */}
           <div className="grid flex-1 grid-cols-3 gap-4 overflow-hidden px-5 pt-4 pb-0">
-            {isLoading ? (
-              // Loading skeleton — same grid, empty columns
-              COLUMNS.map(col => (
-                <BoardColumn
-                  key={col.id}
-                  status={col.id}
-                  label={col.label}
-                  description={col.description}
-                  emails={[]}
-                  onCardClick={() => {}}
-                />
-              ))
-            ) : (
-              COLUMNS.map(col => (
-                <BoardColumn
-                  key={col.id}
-                  status={col.id}
-                  label={col.label}
-                  description={col.description}
-                  emails={byColumn[col.id]}
-                  onCardClick={handleCardClick}
-                />
-              ))
-            )}
+            {COLUMNS.map(col => (
+              <BoardColumn
+                key={col.id}
+                status={col.id}
+                label={col.label}
+                description={col.description}
+                emails={byColumn[col.id] ?? []}
+                movingThreadId={movingThreadId}
+                isLoading={isLoading}
+                onCardClick={handleCardClick}
+              />
+            ))}
           </div>
         </div>
       </div>
