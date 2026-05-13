@@ -1,6 +1,6 @@
 "use client"
 
-import { Sparkles, AlertTriangle, Send, Edit3, MailOpen } from "lucide-react"
+import { Sparkles, AlertTriangle, Send, Edit3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -10,8 +10,9 @@ import { getLatestMessage, getThreadSubject } from "./helpers/thread"
 import { relativeTime } from "./helpers/time"
 
 interface BoardCardProps {
-  email: EmailCard
-  onClick: (email: EmailCard) => void
+  email:     EmailCard
+  isMoving:  boolean
+  onClick:   (email: EmailCard) => void
 }
 
 function ClassificationBadge({ classification }: { classification: EmailCard["classification"] }) {
@@ -45,8 +46,7 @@ function ClassificationBadge({ classification }: { classification: EmailCard["cl
 
 function StateBadge({ state }: { state: EmailCard["state"] }) {
   switch (state) {
-    case "decide":
-      return null
+    case "decide": return null
     case "review":
       return (
         <span className="flex items-center gap-1 text-[11px] text-primary">
@@ -64,20 +64,22 @@ function StateBadge({ state }: { state: EmailCard["state"] }) {
   }
 }
 
-export function BoardCard({ email, onClick }: BoardCardProps) {
-  const latest = getLatestMessage(email.thread)
-  const sender = getFrom(latest)
-  const subject = getThreadSubject(email.thread)
+export function BoardCard({ email, isMoving, onClick }: BoardCardProps) {
+  const latest   = getLatestMessage(email.thread)
+  const sender   = getFrom(latest)
+  const subject  = getThreadSubject(email.thread)
   const received = relativeTime(getDateLabel(latest))
-  const snippet = latest?.snippet ?? ""
+  const snippet  = latest?.snippet ?? ""
 
   return (
     <button
       onClick={() => onClick(email)}
       className={cn(
-        "group/card flex w-full flex-col gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-left transition-all",
+        "group/card flex w-full flex-col gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-left",
+        "transition-all duration-200",
         "hover:border-border/70 hover:shadow-sm hover:shadow-black/5 dark:hover:shadow-black/20",
         email.state === "ready" && "hover:border-[hsl(142,71%,45%)]/30",
+        isMoving && "pointer-events-none scale-[0.98] opacity-40",
       )}
     >
       <div className="flex items-start gap-2.5">
