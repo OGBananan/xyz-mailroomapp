@@ -1,6 +1,5 @@
 locals {
-  # Mirrors the TABLE_NAME constants in nodejs/backend/src/dynamo/entities/
-  # pk = partition key, sk = sort key (null = no sort key), ttl_attr = TTL attribute name
+  # Mirrors TABLE_NAME constants in nodejs/backend/src/dynamo/entities/
   tables = {
     users        = { pk = "userId", sk = null,       ttl_attr = null        }
     oauth-tokens = { pk = "userId", sk = null,       ttl_attr = null        }
@@ -40,9 +39,9 @@ resource "aws_dynamodb_table" "tables" {
     }
   }
 
+  # AWS-owned encryption key — no cost, still encrypted at rest
   server_side_encryption {
-    enabled     = true
-    kms_key_arn = aws_kms_key.backend.arn
+    enabled = true
   }
 
   point_in_time_recovery {
