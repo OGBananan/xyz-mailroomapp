@@ -2,13 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Inbox, Triangle, Settings, HelpCircle, Sun, Moon, Home } from "lucide-react"
+import { Inbox, Triangle, Settings, HelpCircle, Sun, Moon, Home, LogOut, Loader2 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { useAuth } from "@/contexts/auth-context"
 
 interface NavItemProps {
   icon: React.ReactNode
@@ -19,7 +20,7 @@ interface NavItemProps {
 
 function NavItem({ icon, label, href, count }: NavItemProps) {
   const pathname = usePathname()
-  const active = pathname === href
+  const active = pathname === href || pathname === href + "/"
 
   return (
     <Link
@@ -46,6 +47,7 @@ function NavItem({ icon, label, href, count }: NavItemProps) {
 
 export function BoardSidebar() {
   const { resolvedTheme, setTheme } = useTheme()
+  const { user, logout, isLoggingOut } = useAuth()
 
   return (
     <aside className="flex h-full w-[260px] shrink-0 flex-col bg-muted/30">
@@ -65,8 +67,10 @@ export function BoardSidebar() {
 
       {/* Bottom */}
       <div className="flex flex-col gap-0.5 px-2 py-2">
-        <NavItem icon={<Settings />} label="Settings" href="/settings" />
-        <NavItem icon={<HelpCircle />} label="Help & Support" href="/help" />
+        <NavItem icon={<Settings />}    label="Settings"      href="/settings" />
+        <NavItem icon={<HelpCircle />}  label="Help & Support" href="/help" />
+
+        {/* Theme toggle */}
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
           <span className="shrink-0 text-muted-foreground/70 [&>svg]:size-[14px]">
             {resolvedTheme === "dark" ? <Moon /> : <Sun />}
@@ -89,6 +93,42 @@ export function BoardSidebar() {
             </TooltipContent>
           </Tooltip>
         </div>
+
+        {/* User + logout */}
+        {user && (
+          <>
+            <Separator className="my-1" />
+            <div className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1.5 transition-opacity duration-300",
+              isLoggingOut && "opacity-50",
+            )}>
+              <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="flex-1 truncate text-sm text-muted-foreground">
+                {isLoggingOut ? "Signing out…" : user.name}
+              </span>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="size-6 p-0 text-muted-foreground hover:text-destructive disabled:pointer-events-none"
+                      onClick={logout}
+                      disabled={isLoggingOut}
+                    />
+                  }
+                >
+                  {isLoggingOut
+                    ? <Loader2 className="size-3.5 animate-spin" />
+                    : <LogOut className="size-3.5" />
+                  }
+                </TooltipTrigger>
+                <TooltipContent side="right">Sign out</TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
       </div>
     </aside>
   )
