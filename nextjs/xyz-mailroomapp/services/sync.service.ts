@@ -1,3 +1,7 @@
-// Sync is driven by the backend cron — no API trigger needed.
-// The frontend reloads the board on a 2-minute interval (see use-board.ts).
-export const syncService = {}
+import { apiClient } from "./api-client"
+
+export const syncService = {
+  /** Kick off an incremental Gmail sync for the current user.
+   *  Returns immediately — progress arrives via SSE (sync.started, sync.completed). */
+  kickoff: () => apiClient.post<{ ok: boolean }>("/api/sync"),
+}

@@ -2,5 +2,5 @@ export * from './user.entity.js'
 export * from './oauth-token.entity.js'
 export * from './session.entity.js'
 export * from './thread-meta.entity.js'
-export * from './sync-state.entity.js'
+
 export * from './agent-run.entity.js'
