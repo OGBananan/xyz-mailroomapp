@@ -7,18 +7,21 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { StatusIcon } from "./status-icon"
 import { BoardCard } from "./board-card"
+import { ColumnSkeleton } from "./card-skeleton"
 import type { EmailCard } from "./types/email"
 import type { Status } from "./types/status"
 
 interface BoardColumnProps {
-  status: Status
-  label: string
-  description: string
-  emails: EmailCard[]
-  onCardClick: (email: EmailCard) => void
+  status:          Status
+  label:           string
+  description:     string
+  emails:          EmailCard[]
+  isLoading:       boolean
+  movingThreadId:  string | null
+  onCardClick:     (email: EmailCard) => void
 }
 
-export function BoardColumn({ status, label, description, emails, onCardClick }: BoardColumnProps) {
+export function BoardColumn({ status, label, description, emails, isLoading, movingThreadId, onCardClick }: BoardColumnProps) {
   const [editing, setEditing] = useState(false)
   const [prompt, setPrompt] = useState(description)
   const [draft, setDraft] = useState(description)
@@ -31,18 +34,9 @@ export function BoardColumn({ status, label, description, emails, onCardClick }:
     }
   }, [editing])
 
-  function startEdit() {
-    setDraft(prompt)
-    setEditing(true)
-  }
-  function confirm() {
-    setPrompt(draft.trim() || prompt)
-    setEditing(false)
-  }
-  function cancel() {
-    setDraft(prompt)
-    setEditing(false)
-  }
+  function startEdit() { setDraft(prompt); setEditing(true) }
+  function confirm()   { setPrompt(draft.trim() || prompt); setEditing(false) }
+  function cancel()    { setDraft(prompt); setEditing(false) }
 
   return (
     <div className="flex min-h-0 flex-col gap-0">
@@ -51,8 +45,10 @@ export function BoardColumn({ status, label, description, emails, onCardClick }:
         <div className="flex items-center gap-2">
           <StatusIcon status={status} />
           <span className="text-sm font-semibold text-foreground">{label}</span>
-          <span className="text-xs text-muted-foreground/50 tabular-nums">{emails.length}</span>
-          {!editing && (
+          <span className="text-xs text-muted-foreground/50 tabular-nums">
+            {isLoading ? "–" : emails.length}
+          </span>
+          {!editing && !isLoading && (
             <Button
               variant="ghost"
               className="ml-auto size-6 p-0 text-muted-foreground/30 opacity-0 transition-opacity hover:text-muted-foreground group-hover/col:opacity-100"
@@ -94,15 +90,18 @@ export function BoardColumn({ status, label, description, emails, onCardClick }:
       <ScrollArea className="min-h-0 flex-1">
         <div className={cn(
           "flex flex-col gap-1.5 rounded-lg pb-4 pr-2 min-h-16",
-          emails.length === 0 && "items-center justify-center pt-6",
+          !isLoading && emails.length === 0 && "items-center justify-center pt-6",
         )}>
-          {emails.length === 0 ? (
+          {isLoading ? (
+            <ColumnSkeleton count={status === "decide" ? 4 : status === "review" ? 2 : 1} />
+          ) : emails.length === 0 ? (
             <p className="text-xs text-muted-foreground/30">No emails</p>
           ) : (
             emails.map(email => (
               <BoardCard
                 key={email.thread.id}
                 email={email}
+                isMoving={movingThreadId === email.thread.id}
                 onClick={onCardClick}
               />
             ))
