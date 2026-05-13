@@ -16,21 +16,22 @@ interface AuthState {
   user:            User | null
   isLoading:       boolean
   isAuthenticated: boolean
+  isLoggingOut:    boolean
   logout:          () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user,      setUser]      = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user,         setUser]         = useState<User | null>(null)
+  const [isLoading,    setIsLoading]    = useState(true)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     authService
       .getMe()
       .then(setUser)
       .catch((err) => {
-        // 401 is expected when not logged in — everything else is a real error
         if (!(err instanceof ApiError && err.status === 401)) {
           console.error("[auth] unexpected error", err)
         }
@@ -40,13 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    setIsLoggingOut(true)
     try { await authService.logout() } catch { /* ignore */ }
-    setUser(null)
+    // Deliberate pause — gives the user a moment to register something happened
+    await new Promise(r => setTimeout(r, 600))
+    window.location.href = "/login/"
   }, [])
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isAuthenticated: user !== null, logout }}
+      value={{ user, isLoading, isAuthenticated: user !== null, isLoggingOut, logout }}
     >
       {children}
     </AuthContext.Provider>
