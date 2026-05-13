@@ -13,8 +13,14 @@ variable "certificate_arn" {
 
 variable "backend_prefix" {
   type        = string
-  description = "Prefix for all backend resources. Must match TABLE_NAME constants in entity files."
+  description = "Reverse-domain project prefix (e.g. xyz-mailroomapp for mailroomapp.xyz). Must match TABLE_NAME constants."
   default     = "xyz-mailroomapp"
+}
+
+variable "backend_service_name" {
+  type        = string
+  description = "Service identifier used in IAM resource names (e.g. nestjs-api). Result: {prefix}-{service_name}."
+  default     = "nestjs-api"
 }
 
 variable "backend_agentcore_runtime_arns" {
