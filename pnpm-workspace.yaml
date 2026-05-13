@@ -1,3 +1,9 @@
 packages:
   - 'nodejs/*'
   - 'nextjs/*'
+allowBuilds:
+  '@nestjs/core': true
+  esbuild: true
+  msw: true
+  sharp: true
+  unrs-resolver: true
