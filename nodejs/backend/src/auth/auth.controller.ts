@@ -13,6 +13,25 @@ export class AuthController {
     private readonly auth:  AuthService,
   ) {}
 
+  /** Dev-only: create an in-memory session without going through Google OAuth.
+   *  GET /auth/dev-login?userId=test&email=test@local&name=Test
+   *  Returns Set-Cookie: sid=<userId> so curl/Postman can test protected routes. */
+  @Get('dev-login')
+  devLogin(
+    @Query('userId') userId: string = 'dev-user',
+    @Query('email')  email:  string = 'dev@local',
+    @Query('name')   name:   string = 'Dev User',
+    @Res() res: Response,
+  ) {
+    if (env.NODE_ENV === 'production') {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+    this.oauth.storeDevToken(userId, 'dev-access-token', email, name)
+    res.cookie('sid', userId, { httpOnly: true, sameSite: 'lax', maxAge: 86_400_000 })
+    res.json({ ok: true, userId, email, name })
+  }
+
   @Get('google')
   redirectToGoogle(@Res() res: Response) {
     res.redirect(this.oauth.buildAuthUrl())
