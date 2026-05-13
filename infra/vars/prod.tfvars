@@ -1,8 +1,9 @@
 region          = "ap-south-1"
 certificate_arn = "arn:aws:acm:us-east-1:856096730646:certificate/60116b31-ccf7-4d4f-abeb-34718c0c81ad"
 
-backend_prefix      = "xyz-mailroomapp"
-backend_enable_pitr = false
+backend_prefix       = "xyz-mailroomapp"
+backend_service_name = "nestjs-api"
+backend_enable_pitr  = false
 
 # Add ARNs once AgentCore runtimes are deployed:
 # backend_agentcore_runtime_arns = [
