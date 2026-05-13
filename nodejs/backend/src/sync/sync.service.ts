@@ -5,7 +5,6 @@ import { GmailService, type NewThreadInfo } from '../gmail/gmail.service.js'
 import { AgentService }        from '../agent/agent.service.js'
 import { EventsService }       from '../events/events.service.js'
 import { ThreadMetaRepo }      from '../dynamo/repos/thread-meta.repo.js'
-import { SyncStateRepo }       from '../dynamo/repos/sync-state.repo.js'
 import { AgentRunsRepo }       from '../dynamo/repos/agent-runs.repo.js'
 import { mapVerdictToColumn, type TriageVerdict } from './column-mapping.js'
 import { env } from '../config/env.js'
@@ -14,7 +13,9 @@ const BATCH = 10
 
 @Injectable()
 export class SyncService {
-  private readonly logger = new Logger(SyncService.name)
+  private readonly logger  = new Logger(SyncService.name)
+  // In-memory per-user lock — prevents concurrent syncs without needing DynamoDB
+  private readonly syncing = new Set<string>()
 
   constructor(
     private readonly oauth:      GoogleOAuthService,
@@ -22,45 +23,38 @@ export class SyncService {
     private readonly agent:      AgentService,
     private readonly events:     EventsService,
     private readonly threadMeta: ThreadMetaRepo,
-    private readonly syncState:  SyncStateRepo,
     private readonly agentRuns:  AgentRunsRepo,
   ) {}
 
   async runForUser(userId: string): Promise<void> {
-    const locked = await this.syncState.acquireLock(userId)
-    if (!locked) { this.logger.debug(`sync already running for ${userId}`); return }
-
+    if (this.syncing.has(userId)) {
+      this.logger.debug(`sync already running for ${userId}`)
+      return
+    }
+    this.syncing.add(userId)
     this.events.publish(userId, 'sync.started', { userId })
 
     try {
-      const accessToken  = await this.oauth.getValidAccessToken(userId)
-      const state        = await this.syncState.get({ userId })
-      const newHistoryId = await this.gmail.getCurrentHistoryId(accessToken)
-
-      const threads = state?.lastHistoryId
-        ? await this.gmail.listNewSinceHistory(accessToken, String(state.lastHistoryId))
-        : await this.gmail.listUntriaged(accessToken, env.SYNC_BACKFILL_MAX)
+      const accessToken = await this.oauth.getValidAccessToken(userId)
+      const threads     = await this.gmail.listUntriaged(accessToken, env.SYNC_BACKFILL_MAX)
 
       this.logger.log(`sync ${userId}: ${threads.length} threads to triage`)
 
       for (let i = 0; i < threads.length; i += BATCH) {
-        await this.triageBatch(userId, accessToken, threads.slice(i, i + BATCH), newHistoryId)
+        await this.triageBatch(userId, accessToken, threads.slice(i, i + BATCH))
       }
 
-      // Write final state — full put, no partial update needed
-      await this.syncState.put({ userId, lastHistoryId: newHistoryId, lastSyncedAt: Date.now(), status: 'idle' })
       this.events.publish(userId, 'sync.completed', { userId, count: threads.length })
     } catch (err) {
       this.logger.error(err, `sync failed for ${userId}`)
-      // Release lock on failure
-      await this.syncState.update({ userId }, { status: 'idle' })
       this.events.publish(userId, 'error', { message: err instanceof Error ? err.message : 'sync failed' })
+    } finally {
+      this.syncing.delete(userId)
     }
   }
 
   private async triageBatch(
-    userId: string, accessToken: string,
-    batch: NewThreadInfo[], historyId: string,
+    userId: string, accessToken: string, batch: NewThreadInfo[],
   ): Promise<void> {
     const emailsInput = batch.map(t => ({
       id: t.latestMessageId, from: t.from, subject: t.subject, snippet: t.snippet,
@@ -70,7 +64,6 @@ export class SyncService {
     const runId = randomUUID()
     const ttl   = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
 
-    // Record the agent run
     await this.agentRuns.put({ userId, runId, action: 'triage', inputDigest, status: 'running', ttl })
 
     let verdicts: { emailId: string; include: boolean; reason: string | null; confidence: string }[]
@@ -99,7 +92,7 @@ export class SyncService {
       await this.threadMeta.put({
         userId, threadId: thread.threadId,
         triageReason: verdict.reason ?? '', confidence: tv.confidence,
-        agentRunId: runId, lastTriagedHistoryId: historyId,
+        agentRunId: runId, lastTriagedHistoryId: '',
       })
 
       this.events.publish(userId, 'card.created', {

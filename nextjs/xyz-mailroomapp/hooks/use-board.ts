@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { cardsService }      from "@/services/cards.service"
+import { syncService }       from "@/services/sync.service"
 import { createEventStream } from "@/services/events.service"
 import { boardCardToEmailCard, upgradeWithDetail } from "@/lib/card-transform"
 import type { BoardColumn } from "@/types/api"
@@ -58,8 +59,11 @@ export function useBoard(): UseBoardReturn {
   useEffect(() => {
     reload()
 
-    // Auto-refresh board every 2 minutes
-    const interval = setInterval(reload, SYNC_INTERVAL_MS)
+    // Kick off a sync every 2 minutes — backend triages new emails,
+    // SSE sync.completed event triggers a board reload when done
+    const interval = setInterval(() => {
+      syncService.kickoff().catch(console.error)
+    }, SYNC_INTERVAL_MS)
 
     unsubRef.current = createEventStream({
       "sync.started":   ()                       => setIsSyncing(true),

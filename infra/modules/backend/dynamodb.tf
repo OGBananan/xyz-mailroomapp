@@ -5,7 +5,6 @@ locals {
     oauth-tokens = { pk = "userId", sk = null,       ttl_attr = null        }
     sessions     = { pk = "sid",    sk = null,       ttl_attr = "expiresAt" }
     thread-meta  = { pk = "userId", sk = "threadId", ttl_attr = null        }
-    sync-state   = { pk = "userId", sk = null,       ttl_attr = null        }
     agent-runs   = { pk = "userId", sk = "runId",    ttl_attr = "ttl"       }
   }
 }
