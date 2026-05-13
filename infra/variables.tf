@@ -9,7 +9,7 @@ variable "certificate_arn" {
   default     = ""
 }
 
-# ── Backend module ────────────────────────────────────────────────────────────
+# ── Backend ───────────────────────────────────────────────────────────────────
 
 variable "backend_prefix" {
   type        = string
@@ -17,27 +17,16 @@ variable "backend_prefix" {
   default     = "xyz-mailroomapp"
 }
 
-variable "backend_compute_principal" {
-  type        = string
-  description = "Who assumes the backend IAM role: ecs-tasks | ec2 | lambda | iam-user."
-  default     = "iam-user"
-}
-
-variable "backend_iam_user_arn" {
-  type        = string
-  description = "IAM user ARN for static-credential deployments (Railway). Required when backend_compute_principal = iam-user."
-  default     = ""
-}
-
 variable "backend_agentcore_runtime_arns" {
   type        = list(string)
-  description = "AgentCore Runtime ARNs the backend may invoke (evaluator + draft). Leave empty until agents are deployed."
+  description = "AgentCore Runtime ARNs the backend may invoke. Leave empty until agents are deployed."
   default     = []
 }
 
 variable "backend_enable_pitr" {
-  type    = bool
-  default = false
+  type        = bool
+  description = "Enable DynamoDB point-in-time recovery."
+  default     = false
 }
 
 variable "tags" {
