@@ -15,17 +15,24 @@ output "cloudfront_domain" {
 
 # ── Backend ───────────────────────────────────────────────────────────────────
 
-output "backend_role_arn" {
-  value       = module.backend.role_arn
-  description = "IAM role ARN — attach to ECS task / EC2 profile / Roles Anywhere profile."
-}
-
-output "backend_kms_key_id" {
-  value       = module.backend.kms_key_id
-  description = "Set as KMS_KEY_ID env var on the backend service."
-}
-
 output "backend_table_names" {
   value       = module.backend.table_names
   description = "Map of logical key → DynamoDB table name."
+}
+
+output "backend_iam_user" {
+  value       = module.backend.iam_user_name
+  description = "IAM user created for the backend service."
+}
+
+output "backend_access_key_id" {
+  value       = module.backend.access_key_id
+  description = "Set as AWS_ACCESS_KEY_ID in the backend .env"
+  sensitive   = true
+}
+
+output "backend_secret_access_key" {
+  value       = module.backend.secret_access_key
+  description = "Set as AWS_SECRET_ACCESS_KEY in the backend .env"
+  sensitive   = true
 }
