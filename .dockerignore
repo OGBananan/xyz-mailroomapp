@@ -1,0 +1,23 @@
+# Dependencies — never bake node_modules into the image
+**/node_modules
+
+# Build artifacts — rebuilt inside Docker
+**/dist
+**/.next
+
+# Secrets — must NEVER end up in an image layer
+**/.env
+**/.env.*
+**/set-aws-creds*
+
+# Git / tooling noise
+.git
+.claude
+.agents
+**/*.log
+**/*.md
+!README.md
+
+# Frontend and infra are not needed for the backend image
+nextjs/
+infra/
