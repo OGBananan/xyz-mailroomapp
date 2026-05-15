@@ -62,7 +62,14 @@ export class AuthController {
   async logout(@Req() req: Request, @Res() res: Response) {
     const sid = req.cookies?.['sid'] as string | undefined
     if (sid) await this.auth.destroySession(sid)
-    res.clearCookie('sid')
+    // Must match the same attributes used when setting the cookie,
+    // otherwise some browsers silently ignore the deletion.
+    res.cookie('sid', '', {
+      httpOnly: true,
+      secure:   env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires:  new Date(0),
+    })
     res.json({ ok: true })
   }
 
