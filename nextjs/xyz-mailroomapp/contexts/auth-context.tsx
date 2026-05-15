@@ -22,28 +22,35 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+/** Fetch /auth/me, retrying once after a short delay on failure.
+ *  The retry handles the post-OAuth redirect race where the browser
+ *  hasn't committed the cross-origin SameSite=None cookie yet. */
+async function fetchMe(): Promise<User | null> {
+  try {
+    return await authService.getMe()
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      // Brief wait then one retry — covers the cookie commit race on first load
+      await new Promise(r => setTimeout(r, 800))
+      try { return await authService.getMe() } catch { return null }
+    }
+    console.error("[auth] unexpected error", err)
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,         setUser]         = useState<User | null>(null)
   const [isLoading,    setIsLoading]    = useState(true)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
-    authService
-      .getMe()
-      .then(setUser)
-      .catch((err) => {
-        if (!(err instanceof ApiError && err.status === 401)) {
-          console.error("[auth] unexpected error", err)
-        }
-        setUser(null)
-      })
-      .finally(() => setIsLoading(false))
+    fetchMe().then(u => { setUser(u); setIsLoading(false) })
   }, [])
 
   const logout = useCallback(async () => {
     setIsLoggingOut(true)
     try { await authService.logout() } catch { /* ignore */ }
-    // Deliberate pause — gives the user a moment to register something happened
     await new Promise(r => setTimeout(r, 600))
     window.location.href = "/login/"
   }, [])
