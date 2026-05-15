@@ -1,0 +1,11 @@
+[build]
+# Use our Dockerfile at nodejs/backend/Dockerfile
+# Build context = repo root so tsconfig.base.json is reachable
+dockerfilePath = "nodejs/backend/Dockerfile"
+
+[deploy]
+startCommand    = "node dist/main.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType  = "ON_FAILURE"
+restartPolicyMaxRetries = 3
