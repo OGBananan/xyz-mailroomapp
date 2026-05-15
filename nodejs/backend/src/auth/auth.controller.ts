@@ -46,10 +46,14 @@ export class AuthController {
     await this.oauth.persistTokens(profile.userId, tokens)
     const sid = await this.auth.createSession(profile.userId)
 
+    // SameSite=None required for cross-origin cookies in production
+    // (frontend on mailroomapp.xyz, backend on railway.app).
+    // SameSite=None mandates Secure=true.
+    const isProd = env.NODE_ENV === 'production'
     res.cookie('sid', sid, {
       httpOnly: true,
-      secure:   env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure:   isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge:   env.SESSION_TTL_SECONDS * 1000,
     })
     res.redirect(env.FRONTEND_ORIGIN)

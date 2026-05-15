@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { BoardSidebar } from "@/components/board/board-sidebar"
+import { useAuth }      from "@/contexts/auth-context"
 import {
   getFinanceForMonth,
   getPackagesForMonth,
@@ -603,6 +604,7 @@ function PackagesSection({ month }: { month: Date }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
+  const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [syncing, setSyncing] = useState(false)
@@ -643,7 +645,9 @@ export function Dashboard() {
                 <p className="text-xs text-muted-foreground/50 mb-0.5 tabular-nums">
                   {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </p>
-                <h1 className="text-lg font-semibold text-foreground">{greeting}, Anurag.</h1>
+                <h1 className="text-lg font-semibold text-foreground">
+                  {greeting}{user?.name ? `, ${user.name.split(' ')[0]}.` : '.'}
+                </h1>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground/40">
