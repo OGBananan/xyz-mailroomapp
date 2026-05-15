@@ -46,14 +46,12 @@ export class AuthController {
     await this.oauth.persistTokens(profile.userId, tokens)
     const sid = await this.auth.createSession(profile.userId)
 
-    // SameSite=None required for cross-origin cookies in production
-    // (frontend on mailroomapp.xyz, backend on railway.app).
-    // SameSite=None mandates Secure=true.
-    const isProd = env.NODE_ENV === 'production'
+    // api.mailroomapp.xyz and mailroomapp.xyz share the same eTLD+1 →
+    // cookie is same-site, SameSite=Lax works cross-subdomain without issues.
     res.cookie('sid', sid, {
       httpOnly: true,
-      secure:   isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure:   env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge:   env.SESSION_TTL_SECONDS * 1000,
     })
     res.redirect(env.FRONTEND_ORIGIN)
