@@ -1,0 +1,37 @@
+import { cn } from "@/lib/utils"
+
+interface LogoProps {
+  className?: string
+}
+
+/** Mailroom logo mark — Lucide Mail + Rocket, inline SVG.
+ *  Uses stroke="currentColor" so it inherits the parent's text colour
+ *  (white on dark backgrounds, dark on light). */
+export function Logo({ className }: LogoProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-label="Mailroom"
+      className={cn("shrink-0", className)}
+    >
+      {/* Lucide: Mail */}
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+
+      {/* Lucide: Rocket — 0.52× scale, positioned so exhaust sits at
+          the envelope opening and the nose clears the top edge */}
+      <g transform="translate(5,-1) scale(0.52)" strokeWidth="2.88">
+        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09" />
+        <path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z" />
+        <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05" />
+        <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+      </g>
+    </svg>
+  )
+}

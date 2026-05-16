@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 import { useAuth } from "@/contexts/auth-context"
 import { authService } from "@/services/auth.service"
 
@@ -45,7 +46,7 @@ export default function LoginPage() {
           <div className="flex flex-1 flex-col justify-between px-12 py-10">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <img src="/logo.svg" alt="Mailroom" className="size-7" />
+              <Logo className="size-7" />
               <span className="text-sm font-semibold tracking-tight">Mailroom</span>
             </div>
 
