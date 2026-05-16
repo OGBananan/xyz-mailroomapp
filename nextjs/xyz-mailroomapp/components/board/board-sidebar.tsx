@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Inbox, Triangle, Settings, HelpCircle, Sun, Moon, Home, LogOut, Loader2 } from "lucide-react"
+import { Inbox, Settings, HelpCircle, Sun, Moon, Home, LogOut, Loader2 } from "lucide-react"
+import Image from "next/image"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -53,9 +54,7 @@ export function BoardSidebar() {
     <aside className="flex h-full w-[260px] shrink-0 flex-col bg-muted/30">
       {/* Workspace header */}
       <div className="flex items-center gap-2 px-3 py-3">
-        <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Triangle className="size-3 fill-current" />
-        </div>
+        <Image src="/logo.svg" alt="Mailroom" width={24} height={24} className="shrink-0" />
         <span className="flex-1 truncate text-sm font-semibold">Mailroom</span>
       </div>
 

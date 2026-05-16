@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils"
 const geist     = Geist({ subsets: ["latin"], variable: "--font-sans" })
 const fontMono  = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
+export const metadata = {
+  title: "Mailroom",
+  icons: { icon: "/favicon.svg" },
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html

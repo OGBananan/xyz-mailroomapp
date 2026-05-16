@@ -45,20 +45,7 @@ export default function LoginPage() {
           <div className="flex flex-1 flex-col justify-between px-12 py-10">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-md bg-foreground">
-                <svg viewBox="0 0 16 16" fill="none" className="size-3.5">
-                  <path
-                    d="M2 4.5A1.5 1.5 0 013.5 3h9A1.5 1.5 0 0114 4.5v.379l-6 3.6-6-3.6V4.5z"
-                    fill="currentColor"
-                    className="text-background"
-                  />
-                  <path
-                    d="M2 6.871V11.5A1.5 1.5 0 003.5 13h9a1.5 1.5 0 001.5-1.5V6.871l-6 3.6-6-3.6z"
-                    fill="currentColor"
-                    className="text-background"
-                  />
-                </svg>
-              </div>
+              <img src="/logo.svg" alt="Mailroom" className="size-7" />
               <span className="text-sm font-semibold tracking-tight">Mailroom</span>
             </div>
 
