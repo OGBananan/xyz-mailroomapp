@@ -1,24 +1,24 @@
 import { BedrockAgentCoreApp } from 'bedrock-agentcore/runtime'
-import { triageAgent } from './agents/triage.js'
-import { draftAgent } from './agents/draft.js'
-import type { TriageAgentInput, DraftAgentInput } from './types/index.js'
-
-type AgentPayload =
-  | { action: 'triage'; input: TriageAgentInput }
-  | { action: 'draft'; input: DraftAgentInput }
+import { runTriageAgent } from './agents/triage.js'
+import { runDraftAgent } from './agents/draft.js'
+import type { AgentPayload } from './types/index.js'
 
 const app = new BedrockAgentCoreApp({
   invocationHandler: {
     process: async (payload, context) => {
-      const { action, input } = payload as AgentPayload
-      console.log(`Session ${context.sessionId} - action: ${action}`)
+      const { action, input, userId, accessToken } = payload as AgentPayload
+      const threadId = context.sessionId
+
+      console.log(`[${action}] session=${threadId} user=${userId}`)
 
       if (action === 'triage') {
-        return triageAgent.invoke(input as TriageAgentInput)
+        const summary = await runTriageAgent(input, threadId, userId, accessToken)
+        return { ok: true, summary }
       }
 
       if (action === 'draft') {
-        return draftAgent.invoke(input as DraftAgentInput)
+        const summary = await runDraftAgent(input, threadId, userId, accessToken)
+        return { ok: true, summary }
       }
 
       throw new Error(`Unknown action: ${String(action)}`)

@@ -4,6 +4,8 @@ export type {
   TriageAgentInput,
   TriageAgentOutput,
   TriagedEmail,
+  DraftEmailContext,
   DraftAgentInput,
   DraftAgentOutput,
+  AgentPayload,
 } from './agent.js'
